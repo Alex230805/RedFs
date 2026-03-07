@@ -16,7 +16,7 @@ null:
 
 
 testbench: lib redFs_testbench.c
-	$(COMP) $(FLAGS) $(INC) redFs_testbench.c -o testbench -lredfs
+	$(COMP) $(FLAGS) $(INC) $(LIB) redFs_testbench.c -o testbench -lredfs
 
 lib: ./src/lib/redFs.c
 	$(COMP) $(FLAGS) $(INC) -c ./src/lib/redFs.c -o ./src/bin/redFs.o
