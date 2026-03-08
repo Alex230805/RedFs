@@ -163,7 +163,8 @@ int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32
 
 	/* 
 	 * a preallocated address inside the partition table is expected to be found at the time 
-	 * of calling this function, if that's not the case you must first calculate the offset for 
+	 * of calling this function, this is the role of "starting_point" address which is the 
+	 * new allocated partition. If that's not the case you must first calculate the offset for 
 	 * the partition with the help of the "redFs_caclulate_new_partition_offset()" function and 
 	 * manually update the partition table with "redFs_push_on_partition_table(uint32_t p_fstab_adr)" 
 	 * or similar functions provided by the API. It's suggested to use the wrapper "redFs_create_partition()"
