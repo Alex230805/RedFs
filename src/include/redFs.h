@@ -48,12 +48,14 @@ typedef enum{
 	NOERROR = 0,
 	PARTITION_TABLE_FORMAT_ERROR,
 	BOOT_SECTOR_WRITING_ERROR,
-	PARTITION_TABLE_WRITING_ERROR,
+	PARTITION_TABLE_WRITE_ERROR,
+	PARTITION_TABLE_READ_ERROR,
 	PARTITION_NOT_FOUND_ERROR,
 	NOT_ENOUGH_DISK_SPACE_ERROR,
 	FSTAB_READ_ERROR,
 	FSTAB_WRITE_ERROR,
-	FSTAB_PAGE_WRITE_ERROR
+	FSTAB_PAGE_WRITE_ERROR,
+	PARTITION_FORMAT_DISK_ERROR
 }Red_State;
 
 
@@ -145,38 +147,43 @@ typedef struct{
  *
  * */
 
-int redfs_disk_action_write(RED_PTR address, uint8_t data);
-int redfs_disk_action_read(RED_PTR address, uint8_t* data);
+int redFs_disk_action_write(RED_PTR address, uint8_t data);
+int redFs_disk_action_read(RED_PTR address, uint8_t* data);
 
 /*
- * Internal filesystem functions 
+ * Internal filesystem functions, used by each main public function 
+ * of redFs. Usable to get more control over your disk. 
+ *
+ * Use with caution.
  *
  * */
 
 int redFs_format_partition_table(uint32_t max_disk_size);
 int redFs_write_boot_sector(uint8_t*content, uint32_t len);
 
-int redFs_update_partition_table(uint32_t p_fstab_adr, uint8_t partition_number);
-int redFs_push_on_partition_table(uint32_t p_fstab_adr);
+int redFs_update_partition_table(uint32_t p_fstab_adr,uint32_t size, uint8_t partition_number);
+int redFs_push_on_partition_table(uint32_t p_fstab_adr, uint32_t size);
+int redFs_pop_off_partition_table();
 Red_ptable redFs_get_partition_table();
 int redFs_rewrite_partition_table(Red_ptable new_ptable);
 RED_PTR redFs_caclulate_new_partition_offset();
 
-uint32_t redFs_get_new_partition_id();
+uint32_t redFs_generate_partition_id();
 
 Red_Fstab redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t starting_point);
 Red_Fstab redFs_get_fstab(uint8_t partition_number);
-int redFs_update_fdtab(Red_Fstab fstab, uint8_t partition_number);
+int redFs_update_fstab(Red_Fstab fstab, uint8_t partition_number);
 
-int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_point);
+int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_address);
 
 /* 
- * redFs public functions 
+ * redFs standard API functions 
  *
  * */
 
+int redFs_init_disk(uint32_t disk_size);
 int redFs_create_partition(char* name, uint32_t size);
-
+int redFs_delete_partition(char*name,uint32_t partition_id);
 
 #ifndef REDFS_IMP
 #define REDFS_IMP
