@@ -13,6 +13,5 @@ int main(){
 	printf("Size of a single file node: %zu\n", sizeof(Red_File));
 
 	printf("Size of redfs partition table: %zu\n", sizeof(Red_ptable));
-
 	return 0;
 }

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-
+#include <string.h>
 
 /*
  * RedFS: a simple file system for low power architectures.
@@ -40,9 +40,21 @@
 #define REDFS_VERSION 1
 #define PARTITION_LIMIT 256
 #define BOOT_SECTOR_SIZE 512 // bytes
-
+#define PARTITION_BLANK_OFFSET 1024 // byte offset that separate two partitions
 
 #define RED_PTR uint32_t
+
+typedef enum{
+	NOERROR = 0,
+	PARTITION_TABLE_FORMAT_ERROR,
+	BOOT_SECTOR_WRITING_ERROR,
+	PARTITION_TABLE_WRITING_ERROR,
+	PARTITION_NOT_FOUND_ERROR,
+	NOT_ENOUGH_DISK_SPACE_ERROR,
+	FSTAB_READ_ERROR,
+	FSTAB_WRITE_ERROR,
+	FSTAB_PAGE_WRITE_ERROR
+}Red_State;
 
 
 /*
@@ -52,8 +64,10 @@
 
 
 typedef struct{
+	uint32_t max_disk_size;
 	uint8_t partition_count;
-	RED_PTR partition_list[PARTITION_LIMIT];
+	RED_PTR partition_list[PARTITION_LIMIT]; // list pointer for each partition
+	uint32_t partition_size[PARTITION_LIMIT]; // in bytes
 }Red_ptable;
 
 
@@ -83,6 +97,7 @@ typedef struct{
 #define PAGE_IS_FOLDER	0x20
 #define PAGE_IS_LINK	0x30
 
+#define PAGE_DEF_PERMISSION 0x00
 
 typedef struct Red_Node{
 	uint8_t type;
@@ -138,15 +153,22 @@ int redfs_disk_action_read(RED_PTR address, uint8_t* data);
  *
  * */
 
-void redFs_format_partition_table();
-void redFs_write_boot_sector(uint8_t*content, uint32_t len);
+int redFs_format_partition_table(uint32_t max_disk_size);
+int redFs_write_boot_sector(uint8_t*content, uint32_t len);
+
+int redFs_update_partition_table(uint32_t p_fstab_adr, uint8_t partition_number);
+int redFs_push_on_partition_table(uint32_t p_fstab_adr);
+Red_ptable redFs_get_partition_table();
+int redFs_rewrite_partition_table(Red_ptable new_ptable);
+RED_PTR redFs_caclulate_new_partition_offset();
+
+uint32_t redFs_get_new_partition_id();
+
+Red_Fstab redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t starting_point);
+Red_Fstab redFs_get_fstab(uint8_t partition_number);
+int redFs_update_fdtab(Red_Fstab fstab, uint8_t partition_number);
 
 int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_point);
-void redFs_update_partition_table(uint32_t p_fstab_adr, uint8_t partition_number);
-
-Red_Fstab* redFs_get_fstab(uint8_t partition_number);
-void redFs_update_fdtab(Red_Fstab* fstab, uint8_t partition_number);
-
 
 /* 
  * redFs public functions 
@@ -154,9 +176,6 @@ void redFs_update_fdtab(Red_Fstab* fstab, uint8_t partition_number);
  * */
 
 int redFs_create_partition(char* name, uint32_t size);
-Red_Node redFs_get_root_folder(uint8_t partition_number);
-void redFs_change_directory(Red_Node current_node, char* dir_name); // '.' and '..' are supported
-void redFs_create_directory(Red_Node current_node, char* name);
 
 
 #ifndef REDFS_IMP
