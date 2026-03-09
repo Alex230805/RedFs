@@ -2,29 +2,12 @@
 
 #include "redFs.h"
 
-
-int redFs_disk_action_write(RED_PTR address, uint8_t data){
-	/* include implementation */
-	(void)address;
-	(void)data;
-	return 0;
-}
-
-int redFs_disk_action_read(RED_PTR address, uint8_t* data){
-	/* include implementation */
-	(void)address;
-	(void)data;
-	return 0;
-}
-
-
-
 int redFs_format_partition_table(uint32_t max_disk_size){
 	Red_ptable ptable = {0};
 	ptable.max_disk_size = max_disk_size;
-	int size = sizeof(Red_ptable);
-	int offset = BOOT_SECTOR_SIZE;
-	for(int i=0;i<size;i++){
+	uint32_t size = sizeof(Red_ptable);
+	uint32_t offset = BOOT_SECTOR_SIZE;
+	for(uint32_t i=0;i<size;i++){
 		if(redFs_disk_action_write(offset+i, *((uint8_t*)&ptable+i))){
 			return (int)PARTITION_TABLE_FORMAT_ERROR;
 		}
@@ -272,7 +255,7 @@ int redFs_delete_partition(char*name,uint32_t partition_id){
 		}
 		if(fstab.partition_id == partition_id && strcmp(fstab.partition_name, name) == 0){
 			/* deleting the partition entry and shifting back the remaining pointer */
-			for(int j=0;j<(ptable.partition_count-i)-1;j++){
+			for(int j=i;j<(ptable.partition_count-i)-1;j++){
 				ptable.partition_list[j] = ptable.partition_list[j+1];
 				ptable.partition_size[j] = ptable.partition_list[j+1];
 			}

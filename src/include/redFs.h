@@ -80,10 +80,10 @@ typedef struct{
 
 
 #define STRING_LIMIT 16
-#define NODE_SIZE 512
+#define NODE_SIZE 1024
 
 
-#define NODE_ARRAY_LIMIT	(512-(sizeof(uint8_t)*2+sizeof(char)*STRING_LIMIT+sizeof(bool)+sizeof(RED_PTR)*2))
+#define NODE_ARRAY_LIMIT	(NODE_SIZE-(sizeof(uint8_t)*2+sizeof(char)*STRING_LIMIT+sizeof(bool)+sizeof(RED_PTR)*2))
 
 #define PTR_TABLE_TYPE uint32_t
 #define PTR_TABLE_LEN  0xFFFFFFFF / NODE_SIZE
@@ -140,23 +140,14 @@ typedef struct{
 
 
 /*
- * Base functions on which redFs is build on. To be able to use redFs you must 
- * compile it with your own implementation for the read and write call for specific 
- * devices. From complex to simple operative system each device may be managed 
- * differently and this functions provide a standard output layer for the filesystem.
- *
- * */
-
-int redFs_disk_action_write(RED_PTR address, uint8_t data);
-int redFs_disk_action_read(RED_PTR address, uint8_t* data);
-
-/*
  * Internal filesystem functions, used by each main public function 
  * of redFs. Usable to get more control over your disk. 
  *
  * Use with caution.
  *
  * */
+
+#include "redFs_io.h"
 
 int redFs_format_partition_table(uint32_t max_disk_size);
 int redFs_write_boot_sector(uint8_t*content, uint32_t len);
