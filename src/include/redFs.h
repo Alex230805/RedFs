@@ -96,6 +96,7 @@ typedef struct{
 
 
 #define PAGE_ALLOCATED	0xFF
+#define PAGE_RESERVED   0x69
 #define PAGE_FREE		0x00
 
 #define PAGE_IS_FILE	0x10
@@ -143,6 +144,27 @@ typedef struct{
 
 
 /*
+ *	RedFS partition header. It's a struct that store the 
+ *	major information about one partition selected by 
+ *	the system ready to be used by one or more process.
+ *
+ * */
+
+typedef struct{
+	uint32_t free_space;
+	uint32_t used_space;
+	uint32_t reserved_space;
+	RED_PTR partition_address;
+
+	RED_PTR root;
+	RED_PTR current_node;
+
+	Red_Fstab fstab;
+}Red_Header;
+
+
+
+/*
  * Internal filesystem functions, used by each main public function 
  * of redFs. Usable to get more control over your disk. 
  *
@@ -182,6 +204,8 @@ int redFs_delete_partition(char*name,uint32_t partition_id);
 void redFs_print_fstab(uint32_t partition_id);
 void redFs_print_ptable();
 void redFs_strerror(int return_state);
+void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh);
+void redFs_print_partition_header(Red_Header* rh);
 
 #ifndef REDFS_IMP
 #define REDFS_IMP

@@ -133,7 +133,7 @@ int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t s
 	}
 	
 	for(uint32_t i=0;i<(uint32_t)(sizeof(Red_Fstab)/NODE_SIZE);i++){
-		fstab->ptr_table_state[i] = PAGE_ALLOCATED;
+		fstab->ptr_table_state[i] = PAGE_RESERVED;
 	}
 
 	fstab->free_pages = (uint32_t)(partition_size/NODE_SIZE) - (uint32_t)(sizeof(Red_Fstab)/NODE_SIZE);
@@ -326,13 +326,63 @@ void redFs_print_fstab(uint32_t partition_id){
 	redFs_strerror(PARTITION_NOT_FOUND_ERROR);
 }
 
+void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh){
+	Red_ptable ptable = redFs_get_partition_table();
+	bool end = false;
+	for(uint32_t i=0;i<ptable.partition_count && !end;i++){
+		if(ptable.partition_id[i] == partition_id){
+			for(uint32_t j=0;j<sizeof(Red_Fstab); j++){
+				if(redFs_disk_action_read(ptable.partition_list[i]+j, ((uint8_t*)&rh->fstab+j))){
+					redFs_strerror(FSTAB_READ_ERROR);
+					return;
+				}
+			}
+			rh->partition_address = ptable.partition_list[i];
+			rh->root = rh->fstab.entry_point;
+			rh->current_node = rh->fstab.entry_point;
+			rh->free_space = rh->fstab.free_pages * NODE_SIZE;
+			for(uint32_t j=0;j<rh->fstab.page_limit;j++){
+				if(rh->fstab.ptr_table_state[j] == PAGE_ALLOCATED){
+					rh->used_space += 1;
+				}
+			}
+			rh->used_space *= NODE_SIZE;
+			for(uint32_t j=0;j<rh->fstab.page_limit;j++){
+				if(rh->fstab.ptr_table_state[j] == PAGE_RESERVED){
+					rh->reserved_space += 1;
+				}
+			}
+			rh->reserved_space *= NODE_SIZE;
+			end = true;
+		}
+	}
+	return;
+}
+
+void redFs_print_partition_header(Red_Header* rh){
+	printf("Free space: %d bytes / %.2f Mb\n", rh->free_space,(double)rh->free_space/1000000);
+	printf("Used space: %d bytes / %.2f Mb\n", rh->used_space, (double)rh->used_space/1000000);
+	printf("Reserved space: %d bytes / %.2f Mb\n", rh->reserved_space, (double)rh->reserved_space/1000000);
+	printf("Partition address: 0x%x\n",rh->partition_address);
+	printf("Root node: 0x%x\n", rh->root);
+	printf("Current node: 0x%x\n\n", rh->current_node);
+	printf("Partition table: \n");
+	printf("- RedFs id: %d %d %d\n", rh->fstab.redfs_id[0], rh->fstab.redfs_id[1],rh->fstab.redfs_id[2]);
+	printf("- Partition name: %s\n", rh->fstab.partition_name);
+	printf("- RedFs version: %d\n", rh->fstab.version);
+	printf("- Free pages count: %d\n", rh->fstab.free_pages);
+	printf("- Page limit: %d\n", rh->fstab.page_limit);
+	printf("- Partiton id (partition table related): %d\n", rh->fstab.partition_id);
+	printf("- Entry point node address: 0x%x\n", rh->fstab.entry_point);
+}
+
 void redFs_print_ptable(){
 	Red_ptable ptable = redFs_get_partition_table();
 	printf("Max disk size: %u\n", ptable.max_disk_size);
 	printf("Number of partition: %d\n", ptable.partition_count);
 	printf("Pointer table: \n");
 	for(uint32_t i=0;i<ptable.partition_count;i++){
-		printf("-> block [%d]: partition id %d, located at  0x%x, of size %d\n",i, ptable.partition_id[i], ptable.partition_list[i], ptable.partition_size[i]);
+		printf("-> block [%d]: partition id %d, located at  0x%x, of size %d / %.2f Mb\n",i, ptable.partition_id[i], ptable.partition_list[i], ptable.partition_size[i], (double)ptable.partition_size[i]/1000000);
 	}
 }
 
