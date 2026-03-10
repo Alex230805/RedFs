@@ -41,6 +41,8 @@
 #define PARTITION_LIMIT 256
 #define BOOT_SECTOR_SIZE 512 // bytes
 #define PARTITION_BLANK_OFFSET 1024 // byte offset that separate two partitions
+#define NODE_SIZE 8192
+//#define NODE_SIZE 512
 
 #define RED_PTR uint32_t
 
@@ -55,7 +57,8 @@ typedef enum{
 	FSTAB_READ_ERROR,
 	FSTAB_WRITE_ERROR,
 	FSTAB_PAGE_WRITE_ERROR,
-	PARTITION_FORMAT_DISK_ERROR
+	PARTITION_FORMAT_DISK_ERROR,
+	PARTITION_SIZE_NOT_SUFFICIENT
 }Red_State;
 
 
@@ -70,6 +73,7 @@ typedef struct{
 	uint8_t partition_count;
 	RED_PTR partition_list[PARTITION_LIMIT]; // list pointer for each partition
 	uint32_t partition_size[PARTITION_LIMIT]; // in bytes
+	uint32_t partition_id[PARTITION_LIMIT];
 }Red_ptable;
 
 
@@ -80,7 +84,6 @@ typedef struct{
 
 
 #define STRING_LIMIT 16
-#define NODE_SIZE 1024
 
 
 #define NODE_ARRAY_LIMIT	(NODE_SIZE-(sizeof(uint8_t)*2+sizeof(char)*STRING_LIMIT+sizeof(bool)+sizeof(RED_PTR)*2))
@@ -92,7 +95,7 @@ typedef struct{
 #define PAGE_STATE_LEN PTR_TABLE_LEN
 
 
-#define PAGE_ALLOCATED	0x01
+#define PAGE_ALLOCATED	0xFF
 #define PAGE_FREE		0x00
 
 #define PAGE_IS_FILE	0x10
@@ -133,7 +136,7 @@ typedef struct{
 	PAGE_STATE_TYPE ptr_table_state[PAGE_STATE_LEN];
 	PTR_TABLE_TYPE raw_ptr_table[PTR_TABLE_LEN];
 	uint32_t free_pages;
-	uint32_t file_count;
+	uint32_t page_limit;
 	uint32_t partition_id;
 	RED_PTR entry_point;
 }Red_Fstab;
@@ -152,8 +155,9 @@ typedef struct{
 int redFs_format_partition_table(uint32_t max_disk_size);
 int redFs_write_boot_sector(uint8_t*content, uint32_t len);
 
-int redFs_update_partition_table(uint32_t p_fstab_adr,uint32_t size, uint8_t partition_number);
-int redFs_push_on_partition_table(uint32_t p_fstab_adr, uint32_t size);
+int redFs_update_partition_table(uint32_t p_fstab_adr,uint32_t size, uint32_t partition_id, uint8_t partition_number);
+int redFs_update_last_on_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t partition_id);
+int redFs_push_on_partition_table(uint32_t p_fstab_adr, uint32_t size, uint32_t partition_id);
 int redFs_pop_off_partition_table();
 Red_ptable redFs_get_partition_table();
 int redFs_rewrite_partition_table(Red_ptable new_ptable);
@@ -161,12 +165,12 @@ RED_PTR redFs_caclulate_new_partition_offset();
 
 uint32_t redFs_generate_partition_id();
 
-Red_Fstab redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t starting_point);
-Red_Fstab redFs_get_fstab(uint8_t partition_number);
+int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t starting_point, Red_Fstab* fstab);
+Red_Fstab* redFs_get_fstab(uint8_t partition_number);
 int redFs_update_fstab(Red_Fstab fstab, uint8_t partition_number);
 
-int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_address);
-
+int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_address, Red_Fstab* fstab);
+void redFs_debug_print_fstab(Red_Fstab* fstab);
 /* 
  * redFs standard API functions 
  *
@@ -175,6 +179,9 @@ int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32
 int redFs_init_disk(uint32_t disk_size);
 int redFs_create_partition(char* name, uint32_t size);
 int redFs_delete_partition(char*name,uint32_t partition_id);
+void redFs_print_fstab(uint32_t partition_id);
+void redFs_print_ptable();
+void redFs_strerror(int return_state);
 
 #ifndef REDFS_IMP
 #define REDFS_IMP
