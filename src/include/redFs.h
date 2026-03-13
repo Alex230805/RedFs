@@ -41,8 +41,9 @@
 #define PARTITION_LIMIT 256
 #define BOOT_SECTOR_SIZE 512 // bytes
 #define PARTITION_BLANK_OFFSET 1024 // byte offset that separate two partitions
-#define NODE_SIZE 8192
+#define NODE_SIZE 512
 //#define NODE_SIZE 512
+#define CACHE_TIME_LIMIT 1024*20 // number of access before the fstab inside the Red_Header is synched to the drive
 
 #define RED_PTR uint32_t
 
@@ -58,7 +59,11 @@ typedef enum{
 	FSTAB_WRITE_ERROR,
 	FSTAB_PAGE_WRITE_ERROR,
 	PARTITION_FORMAT_DISK_ERROR,
-	PARTITION_SIZE_NOT_SUFFICIENT
+	PARTITION_SIZE_NOT_SUFFICIENT,
+	PARTITION_ACTION_UNKNOWN,
+	PARTITION_NODE_WRITING_ERROR,
+	PARTITION_NODE_READING_ERROR,
+	REDFS_UNSUPPORTED_FUNCTION
 }Red_State;
 
 
@@ -85,19 +90,31 @@ typedef struct{
 
 #define STRING_LIMIT 16
 
-
-#define NODE_ARRAY_LIMIT	(NODE_SIZE-(sizeof(uint8_t)*2+sizeof(char)*STRING_LIMIT+sizeof(bool)+sizeof(RED_PTR)*2))
-
 #define PTR_TABLE_TYPE uint32_t
-#define PTR_TABLE_LEN  0xFFFFFFFF / NODE_SIZE
+
+#define BLOCK_SIZE (1024*64) // 64k of space per memory block
+#define BLOCK_COUNT ( 0xFFFFFFFF / BLOCK_SIZE )
+#define BLOCK_NODE_COUNT ( BLOCK_SIZE / NODE_SIZE )
+
+#define NODE_ARRAY_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(uint32_t)+(sizeof(RED_PTR)*2))))
+#define NODE_FILE_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(RED_PTR)*2)))
+
 
 #define PAGE_STATE_TYPE uint8_t
 #define PAGE_STATE_LEN PTR_TABLE_LEN
 
+// Block state
+//
+#define FREE_BLOCK		0x00
+#define ACTIVE_BLOCK	0x0A
+#define FULL_BLOCK		0x1A
+#define RESERVED_BLOCK  0xAE
 
-#define PAGE_ALLOCATED	0xFF
-#define PAGE_RESERVED   0x69
-#define PAGE_FREE		0x00
+// One segment is a part of the memory block, 
+// each memory block is composed of BLOCK_NODE_COUNT fragment
+//
+#define FREE_SEGMENT		0x00
+#define SEGMENT_ALLOCATED	0xFF
 
 #define PAGE_IS_FILE	0x10
 #define PAGE_IS_FOLDER	0x20
@@ -110,6 +127,7 @@ typedef struct Red_Node{
 	char name[STRING_LIMIT];
 	uint8_t permissions;
 	bool chained;
+	uint32_t content_count;
 	RED_PTR	 prev_page;
 	RED_PTR  next_page;
 	RED_PTR  content[NODE_ARRAY_LIMIT/sizeof(RED_PTR)];
@@ -122,22 +140,46 @@ typedef struct Red_File{
 	bool chained;
 	RED_PTR	 prev_page;
 	RED_PTR  next_page;
-	uint8_t content[NODE_ARRAY_LIMIT-4];
+	uint8_t content[NODE_FILE_LIMIT-4];
 }Red_File;
 
 
 /* 
- * Simple fstab to keep track of the required 
+ * Simple fstab based on a memory block segmentation.
+ * To reduce fstab size, each node is 512 bytes wide and the 
+ * fstab store a list of memory blocks each 32Kbyte wide. During the 
+ * allocation the first available block is selected only if it can 
+ * handle an allocation, it means that if a block still have free 
+ * space it will be selected as the target for the node allocation,
+ * and to determine this each Red_MBlock have a "node_state" array, 
+ * the width is the size of the memory block divided by the 
+ * size of each node ( 512byte ). It store not only the node state, 
+ * but it's also used to offset the base pointer of the memory 
+ * block to a free space to enable the allocation. 
+ *
+ * This improve the size of the fstab since it will store 
+ * fewer pointer and state for each page and with a smaller node 
+ * the fragmentation of the drive due to the normal usage will be 
+ * reduced drastically compared to the previous version, which to 
+ * reduce fstab size down to 2Mb each node was 8Kb wide.
+ *
  * */
+
+typedef struct{
+	RED_PTR base_ptr;
+	uint8_t node_count; // offset and state-of-node
+}Red_MBlock;
 
 typedef struct{
 	uint32_t redfs_id[3];
 	char partition_name[STRING_LIMIT];
 	uint8_t version;
-	PAGE_STATE_TYPE ptr_table_state[PAGE_STATE_LEN];
-	PTR_TABLE_TYPE raw_ptr_table[PTR_TABLE_LEN];
-	uint32_t free_pages;
-	uint32_t page_limit;
+	
+	Red_MBlock raw_block_ptr[BLOCK_COUNT];
+	uint8_t	block_state[BLOCK_COUNT];
+
+	uint32_t free_blocks;
+	uint32_t block_limit;
 	uint32_t partition_id;
 	RED_PTR entry_point;
 }Red_Fstab;
@@ -151,7 +193,6 @@ typedef struct{
  * */
 
 typedef struct{
-	uint32_t free_space;
 	uint32_t used_space;
 	uint32_t reserved_space;
 	RED_PTR partition_address;
@@ -160,6 +201,8 @@ typedef struct{
 	RED_PTR current_node;
 
 	Red_Fstab fstab;
+	uint32_t cache_timing;
+	uint32_t cache_limit;
 }Red_Header;
 
 
@@ -168,11 +211,12 @@ typedef struct{
  * Internal filesystem functions, used by each main public function 
  * of redFs. Usable to get more control over your disk. 
  *
- * Use with caution.
+ * Use it with caution.
  *
  * */
 
 #include "redFs_io.h"
+#include "redFs_node.h"
 
 int redFs_format_partition_table(uint32_t max_disk_size);
 int redFs_write_boot_sector(uint8_t*content, uint32_t len);
@@ -193,7 +237,10 @@ int redFs_update_fstab(Red_Fstab fstab, uint8_t partition_number);
 
 int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_address, Red_Fstab* fstab);
 void redFs_debug_print_fstab(Red_Fstab* fstab);
-/* 
+
+
+/*
+ *
  * redFs standard API functions 
  *
  * */
@@ -206,6 +253,18 @@ void redFs_print_ptable();
 void redFs_strerror(int return_state);
 void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh);
 void redFs_print_partition_header(Red_Header* rh);
+
+/*
+ * 
+ * Before closing the partition the system must synch changing inside the fstab used to 
+ * operate with the filesystem, if this is not done all modification about folders, files 
+ * and so on will be reverted to the last auto synch. Before changing header it's a good 
+ * practice to always synch the header to the drive to avoid data fragmentation problem.
+ *
+ * */
+
+int redFs_sync_partition(Red_Header* header);
+
 
 #ifndef REDFS_IMP
 #define REDFS_IMP

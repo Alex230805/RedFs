@@ -20,9 +20,13 @@ int main(){
 
 	printf("General stats:\n");
 	printf("Size of redfstab: %.2f Mb\n", (double)sizeof(Red_Fstab)/1000000);
+	printf("Memory block size: %d\n", BLOCK_SIZE);
+	printf("Total maximum memory block count: %d\n",BLOCK_COUNT);
+	printf("Segment per memory block: %d\n", BLOCK_NODE_COUNT);
 	printf("Size of a single node: %zu\n", sizeof(Red_Node));
 	printf("Size of a single file node: %zu\n", sizeof(Red_File));
 	printf("Size of redfs partition table: %zu\n", sizeof(Red_ptable));
+	printf("Node array limit for node: %zu\n", NODE_ARRAY_LIMIT/sizeof(RED_PTR));
 
 	SEP();
 	printf("Initializing disk of size: %.2f Mb\n",(double)DISK_SIZE/1000000);
@@ -38,8 +42,6 @@ int main(){
 	if(ret){
 		printf("aborting '%s' creation\n",partition_0_name);
 	}
-
-
 	const uint32_t partition_1_size = 0xBAFFFFF;
 	char * partition_1_name = "part_1"; 
 	printf("-> Creating partition '%s' of size: %.2f Mb\n", partition_1_name, (double)partition_1_size/1000000);
@@ -67,6 +69,8 @@ int main(){
 		printf("aborting '%s' creation\n",partition_3_name);
 	}
 	redFs_print_ptable();
+
+	
 	SEP()
 	printf("Showing fstab about each partition:\n\n");
 	redFs_print_fstab(1001);
@@ -76,11 +80,14 @@ int main(){
 	redFs_print_fstab(1003);
 	printf("\n");
 	redFs_print_fstab(1004);
+	
+	
 	SEP();
 	printf("Trying to delete '%s' with ID '%d'\n", partition_0_name, 1001);
 	ret = redFs_delete_partition(partition_0_name,1001);
 	redFs_strerror(ret);
 	redFs_print_ptable();
+
 	SEP();
 	printf("Getting partition header for partition %d\n", 1003);
 	Red_Header header = {0};
@@ -88,6 +95,46 @@ int main(){
 	printf("Partition header content:\n");
 	redFs_print_partition_header(&header);
 
+	SEP();
+	printf("Testing sync function:\n");
+	header.cache_timing = 1;
+	ret = redFs_sync_partition(&header);
+	if(ret){
+		printf("aborting '%s' creation\n",partition_2_name);
+	}
+	printf("Header synched to the drive, now fetching it back to see if data maches\n");
+	redFs_print_fstab(1003); // print fstab directly from the drive
+
+	return 0; 
+
+
+	SEP();
+	printf("Testing node functions\n");
+	printf("Allocating nodes on the root folder, the current folder set as header\n");
+
+	ret = redFs_node_alloc(&header, "folder_0", PAGE_DEF_PERMISSION);
+	redFs_strerror(ret);
+	if(ret){
+		printf("Aborting folder creation\n");
+		exit(ret);
+	}
+
+	ret = redFs_node_alloc(&header, "folder_1", PAGE_DEF_PERMISSION);
+	redFs_strerror(ret);
+	if(ret){
+		printf("Aborting folder creation\n");
+		exit(ret);
+	}
+	
+	ret = redFs_node_alloc(&header, "folder_2", PAGE_DEF_PERMISSION);
+	redFs_strerror(ret);
+	if(ret){
+		printf("Aborting folder creation\n");
+		exit(ret);
+	}
+
+	printf("Showing folder content:\n");
+	redFs_node_debug_show_content(header.current_node);
 	redFs_close_static_virtual_memory();
 	return 0;
 }
