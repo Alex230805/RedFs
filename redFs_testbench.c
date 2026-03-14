@@ -104,7 +104,12 @@ int main(){
 	}
 	printf("Header synched to the drive, now fetching it back to see if data maches\n");
 	redFs_print_fstab(1003); // print fstab directly from the drive
-
+	
+	SEP();
+	printf("Generating fragmentation report on partition id 1002\n");
+	Red_Header f_header = {0};
+	redFs_get_partition_header(1002, &f_header);
+	redFs_print_fragmentation_report(&f_header.fstab);
 	return 0; 
 
 

@@ -41,7 +41,7 @@
 #define PARTITION_LIMIT 256
 #define BOOT_SECTOR_SIZE 512 // bytes
 #define PARTITION_BLANK_OFFSET 1024 // byte offset that separate two partitions
-#define NODE_SIZE 512
+#define NODE_SIZE 1024
 //#define NODE_SIZE 512
 #define CACHE_TIME_LIMIT 1024*20 // number of access before the fstab inside the Red_Header is synched to the drive
 
@@ -92,7 +92,7 @@ typedef struct{
 
 #define PTR_TABLE_TYPE uint32_t
 
-#define BLOCK_SIZE (1024*64) // 64k of space per memory block
+#define BLOCK_SIZE (1024*32) // 64k of space per memory block
 #define BLOCK_COUNT ( 0xFFFFFFFF / BLOCK_SIZE )
 #define BLOCK_NODE_COUNT ( BLOCK_SIZE / NODE_SIZE )
 
@@ -167,7 +167,8 @@ typedef struct Red_File{
 
 typedef struct{
 	RED_PTR base_ptr;
-	uint8_t node_count; // offset and state-of-node
+	uint8_t node_count; 
+	uint32_t fragment_map; // bitmap to keep track of allocated node inside the memory map 
 }Red_MBlock;
 
 typedef struct{
@@ -234,7 +235,8 @@ uint32_t redFs_generate_partition_id();
 int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t starting_point, Red_Fstab* fstab);
 Red_Fstab* redFs_get_fstab(uint8_t partition_number);
 int redFs_update_fstab(Red_Fstab fstab, uint8_t partition_number);
-
+void redFs_print_fragmentation_report(Red_Fstab* fstab);
+int redFs_get_free_fragment_offset(uint32_t fragment_map);
 int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_address, Red_Fstab* fstab);
 void redFs_debug_print_fstab(Red_Fstab* fstab);
 

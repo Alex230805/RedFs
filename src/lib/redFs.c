@@ -132,12 +132,14 @@ int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t s
 		fstab->raw_block_ptr[i].base_ptr = starting_point + i*BLOCK_SIZE;
 		fstab->block_state[i] = FREE_BLOCK;
 		fstab->raw_block_ptr[i].node_count = 0;
+		fstab->raw_block_ptr[i].fragment_map = 0;
 	}
 
-	uint32_t block_per_fstab = (sizeof(fstab) / BLOCK_SIZE)+1;
+	uint32_t block_per_fstab = (sizeof(Red_Fstab) / BLOCK_SIZE)+1;
 	for(i=0;i<block_per_fstab;i++){
 		fstab->block_state[i] = RESERVED_BLOCK;
 		fstab->raw_block_ptr[i].node_count = BLOCK_NODE_COUNT;
+		fstab->raw_block_ptr[i].fragment_map = 0xFFFFFFFF;
 	}
 
 	fstab->free_blocks = (uint32_t)(partition_size/BLOCK_SIZE) - block_per_fstab;
@@ -182,6 +184,17 @@ int redFs_update_fstab(Red_Fstab fstab, uint8_t partition_number){
 }
 
 
+int redFs_get_free_fragment_offset(uint32_t fragment_map){
+	uint32_t i;
+	for(i=0; i < sizeof(uint32_t)*8;i++){
+		int i = (fragment_map >> i) & 0x01;
+		if(i == 0){
+			return i;
+		}
+	}
+	return -1;
+}
+
 int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_point, Red_Fstab* fstab){
 
 	/* 
@@ -212,13 +225,16 @@ int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32
 	// locate and write entry point node 
 	uint32_t i=0;
 	while((fstab->block_state[i] == RESERVED_BLOCK || fstab->block_state[i] == FULL_BLOCK) && i < fstab->block_limit){i+=1;}
-	RED_PTR node_adr = fstab->raw_block_ptr[i].base_ptr + fstab->raw_block_ptr[i].node_count*sizeof(Red_Node);
+	int frag_offset = redFs_get_free_fragment_offset(fstab->raw_block_ptr[i].fragment_map);
+	if(frag_offset == -1) return 1;
 
+	RED_PTR node_adr = fstab->raw_block_ptr[i].base_ptr + frag_offset*sizeof(Red_Node);
 	for(uint32_t k=0;k<sizeof(Red_Node);k++){
 		if(redFs_disk_action_write(node_adr+k, *((uint8_t*)&entry_point+k))){
 			return (int)FSTAB_PAGE_WRITE_ERROR;
 		}
 	}
+	fstab->raw_block_ptr[i].fragment_map = fstab->raw_block_ptr[i].fragment_map | (1 << frag_offset);
 
 	if(fstab->block_state[i] == FREE_BLOCK){
 		fstab->block_state[i] = ACTIVE_BLOCK;
@@ -325,13 +341,13 @@ void redFs_debug_print_fstab(Red_Fstab* fstab){
 	printf("Block states:\n");
 	for(uint32_t i=0;i<BLOCK_COUNT;i++){
 		if(fstab->block_state[i] == ACTIVE_BLOCK){
-			printf("-> Active block [%d], node allocated: %d\n", i, fstab->raw_block_ptr[i].node_count);
+			printf("-> Active block [%d], node allocated: %d, fragment map: 0x%x\n", i, fstab->raw_block_ptr[i].node_count, fstab->raw_block_ptr[i].fragment_map);
 		}
 		if(fstab->block_state[i] == FULL_BLOCK){
-			printf("-> Full block [%d], node allocated: %d\n", i, fstab->raw_block_ptr[i].node_count);
+			printf("-> Full block [%d], node allocated: %d, fragment map: 0x%x\n", i, fstab->raw_block_ptr[i].node_count, fstab->raw_block_ptr[i].fragment_map);
 		}
 		if(fstab->block_state[i] == RESERVED_BLOCK){
-			printf("-> Reserved block [%d], node allocated: %d\n", i, fstab->raw_block_ptr[i].node_count);
+			printf("-> Reserved block [%d], node allocated: %d, fragment map: 0x%x\n", i, fstab->raw_block_ptr[i].node_count, fstab->raw_block_ptr[i].fragment_map);
 		}
 	}
 }
@@ -406,6 +422,23 @@ void redFs_print_ptable(){
 	printf("Pointer table: \n");
 	for(uint32_t i=0;i<ptable.partition_count;i++){
 		printf("-> block [%d]: partition id %d, located at  0x%x, of size %d / %.2f Mb\n",i, ptable.partition_id[i], ptable.partition_list[i], ptable.partition_size[i], (double)ptable.partition_size[i]/1000000);
+	}
+}
+
+void redFs_print_fragmentation_report(Red_Fstab* fstab){
+	printf("RedFs fragmentation report\n");
+	for(uint32_t i=0;i<fstab->block_limit;i++){
+		printf("Memory block %d at 0x%x: ->  ", i, fstab->raw_block_ptr[i].base_ptr);
+		for(uint32_t j=0;j<32;j++){
+			int fstate = fstab->raw_block_ptr[i].fragment_map >> j & 0x01;
+			if(fstate == 1){
+				printf("\e[0m[\e[40m\e[1;91m#\e[0m]");
+			}else{
+				printf("\e[0m[\e[40m\e[1;92m#\e[0m]");
+			}
+			printf("\e[0m");
+		}
+		printf("\n");
 	}
 }
 
