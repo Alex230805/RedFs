@@ -9,7 +9,6 @@
 #define VIRTUAL_MEMORY "virtual_memory"
 #define DISK_SIZE 0xFFFFFFFF
 
-
 #define SEP()\
 	printf("\n============================================================\n");
 
@@ -36,7 +35,7 @@ int main(){
 	int ret = 0;
 	const uint32_t partition_0_size = 0xF0FFFF;
 	char * partition_0_name = "part_0"; 
-	printf("-> Creating partition '%s' of size: %.2f\n", partition_0_name,(double)partition_0_size/1000000);
+	printf("-> Creating partition '%s' of size: %.2f Mb\n", partition_0_name,(double)partition_0_size/1000000);
 	ret = redFs_create_partition(partition_0_name, partition_0_size);
 	redFs_strerror(ret);
 	if(ret){
@@ -106,40 +105,53 @@ int main(){
 	redFs_print_fstab(1003); // print fstab directly from the drive
 	
 	SEP();
-	printf("Generating fragmentation report on partition id 1002\n");
+	printf("Generating fragmentation report on a new partition 'frag_test'\n");
+	ret = redFs_create_partition("frag_test", 0x1FFFFF);
+	if(ret){
+		printf("aborting '%s' creation\n",partition_1_name);
+		redFs_strerror(ret);
+	}
+	redFs_print_ptable();
 	Red_Header f_header = {0};
-	redFs_get_partition_header(1002, &f_header);
+	redFs_get_partition_header(1005, &f_header);
 	redFs_print_fragmentation_report(&f_header.fstab);
-	return 0; 
-
 
 	SEP();
-	printf("Testing node functions\n");
-	printf("Allocating nodes on the root folder, the current folder set as header\n");
-
-	ret = redFs_node_alloc(&header, "folder_0", PAGE_DEF_PERMISSION);
-	redFs_strerror(ret);
-	if(ret){
-		printf("Aborting folder creation\n");
-		exit(ret);
+	printf("Testing auto fill space to optimize partition creation\n");
+	for(int i=0;i<8;i++){
+		char buffer[8];
+		char name[8];
+		strcpy(name, "t");
+		sprintf(buffer, "%d", i);
+		strcat(name, buffer);
+		ret = redFs_create_partition(name, 0x1FFFFF);
+		if(ret){
+			printf("aborting '%s' creation\n",partition_1_name);
+			redFs_strerror(ret);
+		}
+		printf("Creating partition '%s'\n", name);
 	}
+	redFs_print_ptable();
 
-	ret = redFs_node_alloc(&header, "folder_1", PAGE_DEF_PERMISSION);
-	redFs_strerror(ret);
-	if(ret){
-		printf("Aborting folder creation\n");
-		exit(ret);
+	SEP();
+	printf("Testing folder creation, showing node content\n");
+	redFs_node_show_content(f_header.current_node);
+	for(int i=0;i<10;i++){
+		char buffer[8];
+		char name[16];
+		strcpy(name, "folder_");
+		sprintf(buffer, "%d", i);
+		strcat(name, buffer);
+		ret = redFs_node_alloc(&f_header, name, 0, PAGE_IS_FOLDER);
+		if(ret){
+			redFs_strerror(ret);
+			return ret;
+		}
+		printf("Creating folder %s\n", name);
 	}
-	
-	ret = redFs_node_alloc(&header, "folder_2", PAGE_DEF_PERMISSION);
-	redFs_strerror(ret);
-	if(ret){
-		printf("Aborting folder creation\n");
-		exit(ret);
-	}
-
-	printf("Showing folder content:\n");
-	redFs_node_debug_show_content(header.current_node);
+	redFs_node_show_content(f_header.current_node);
+	printf("Printing fragment map: \n");
+	redFs_print_fragmentation_report(&f_header.fstab);
 	redFs_close_static_virtual_memory();
 	return 0;
 }

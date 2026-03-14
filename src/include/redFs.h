@@ -63,7 +63,8 @@ typedef enum{
 	PARTITION_ACTION_UNKNOWN,
 	PARTITION_NODE_WRITING_ERROR,
 	PARTITION_NODE_READING_ERROR,
-	REDFS_UNSUPPORTED_FUNCTION
+	REDFS_UNSUPPORTED_FUNCTION,
+	REDFS_BLOCK_FRAGMENT_ERROR
 }Red_State;
 
 
@@ -92,12 +93,12 @@ typedef struct{
 
 #define PTR_TABLE_TYPE uint32_t
 
-#define BLOCK_SIZE (1024*32) // 64k of space per memory block
+#define BLOCK_SIZE (1024*32) // 32k of space per memory block
 #define BLOCK_COUNT ( 0xFFFFFFFF / BLOCK_SIZE )
 #define BLOCK_NODE_COUNT ( BLOCK_SIZE / NODE_SIZE )
 
-#define NODE_ARRAY_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(uint32_t)+(sizeof(RED_PTR)*2))))
-#define NODE_FILE_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(RED_PTR)*2)))
+#define NODE_ARRAY_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(uint32_t)+(sizeof(RED_PTR)*4))))
+#define NODE_FILE_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(RED_PTR)*4)))
 
 
 #define PAGE_STATE_TYPE uint8_t
@@ -124,17 +125,19 @@ typedef struct{
 
 typedef struct Red_Node{
 	uint8_t type;
+	RED_PTR f_node;
 	char name[STRING_LIMIT];
 	uint8_t permissions;
 	bool chained;
 	uint32_t content_count;
 	RED_PTR	 prev_page;
 	RED_PTR  next_page;
-	RED_PTR  content[NODE_ARRAY_LIMIT/sizeof(RED_PTR)];
+	RED_PTR  content[(NODE_ARRAY_LIMIT/sizeof(RED_PTR))];
 }Red_Node;
 
 typedef struct Red_File{
 	uint8_t type;
+	RED_PTR f_node;
 	char name[STRING_LIMIT];
 	uint8_t permissions;
 	bool chained;
@@ -228,8 +231,8 @@ int redFs_push_on_partition_table(uint32_t p_fstab_adr, uint32_t size, uint32_t 
 int redFs_pop_off_partition_table();
 Red_ptable redFs_get_partition_table();
 int redFs_rewrite_partition_table(Red_ptable new_ptable);
-RED_PTR redFs_caclulate_new_partition_offset();
-
+int redFs_sort_sync_partition_table();
+RED_PTR redFs_caclulate_new_partition_offset(uint32_t size);
 uint32_t redFs_generate_partition_id();
 
 int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t starting_point, Red_Fstab* fstab);
@@ -239,7 +242,6 @@ void redFs_print_fragmentation_report(Red_Fstab* fstab);
 int redFs_get_free_fragment_offset(uint32_t fragment_map);
 int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_address, Red_Fstab* fstab);
 void redFs_debug_print_fstab(Red_Fstab* fstab);
-
 
 /*
  *

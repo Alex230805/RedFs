@@ -100,17 +100,67 @@ int redFs_rewrite_partition_table(Red_ptable new_ptable){
 	return 0;
 }
 
-RED_PTR redFs_caclulate_new_partition_offset(){
+int redFs_sort_sync_partition_table(){
+	Red_ptable ptable = redFs_get_partition_table();
+	
+	RED_PTR swap_ptr = 0;
+	uint32_t swap_size = 0;
+	uint32_t swap_id = 0;
+
+	for(uint32_t j=0;j<ptable.partition_count;j++){
+		for(uint32_t i=0;i<ptable.partition_count-1;i++){
+			if(ptable.partition_list[i] > ptable.partition_list[i+1]){
+				swap_ptr = ptable.partition_list[i+1];
+				swap_size = ptable.partition_size[i+1];
+				swap_id = ptable.partition_id[i+1];
+
+				ptable.partition_list[i+1] = ptable.partition_list[i];
+				ptable.partition_id[i+1] =	 ptable.partition_id[i];
+				ptable.partition_size[i+1] = ptable.partition_size[i];
+
+				ptable.partition_list[i] = swap_ptr; 
+				ptable.partition_id[i]   = swap_id;
+				ptable.partition_size[i] = swap_size;
+			}
+		}
+	}
+	
+	int err = redFs_rewrite_partition_table(ptable);
+	return err;
+}
+
+
+RED_PTR redFs_caclulate_new_partition_offset(uint32_t size){
+	// note: this is based on a ordered partition table
 	Red_ptable ptable = redFs_get_partition_table();
 	if(ptable.partition_count < 1) return sizeof(Red_ptable)+BOOT_SECTOR_SIZE+PARTITION_BLANK_OFFSET;
-	RED_PTR offset = ptable.partition_size[ptable.partition_count-1] + ptable.partition_list[ptable.partition_count-1];
-	offset += PARTITION_BLANK_OFFSET;
-	return offset;
+	
+	// search for usable space between the base and the first partition of the disk
+	if(ptable.partition_list[0] - sizeof(Red_ptable)+BOOT_SECTOR_SIZE+PARTITION_BLANK_OFFSET >= size){
+		return sizeof(Red_ptable)+BOOT_SECTOR_SIZE+PARTITION_BLANK_OFFSET;
+	}
+
+	// search for usable space between existing partitions
+	for(uint32_t i=0;i<ptable.partition_count-1;i++){
+		uint32_t start = ptable.partition_size[i] + ptable.partition_list[i]+PARTITION_BLANK_OFFSET;
+		uint32_t end =  ptable.partition_list[i+1];
+		if(end-start >= size){ return start; }
+	}
+
+	// if there's no space between existing partition, a new one after the last one is created
+	uint32_t start = ptable.partition_size[ptable.partition_count-1] + ptable.partition_list[ptable.partition_count-1]+PARTITION_BLANK_OFFSET;
+	return start;
 }
 
 uint32_t redFs_generate_partition_id(){
 	Red_ptable ptable = redFs_get_partition_table();
-	return ptable.partition_count+1000;
+	uint32_t bid = 1000;
+	for(int i=0;i<PARTITION_LIMIT ;i++){
+		if(ptable.partition_id[i] > bid){
+			bid = ptable.partition_id[i];
+		}
+	}
+	return bid+1;
 }
 
 int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t starting_point, Red_Fstab* fstab){
@@ -127,6 +177,7 @@ int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t s
 	}
 	if(partition_size < sizeof(Red_Fstab)) return 1;
 	
+	// TODO: add not-contiguous allocation and mapping 
 	uint32_t i=0;
 	for(i=0;i<(uint32_t)(partition_size/BLOCK_SIZE);i++){
 		fstab->raw_block_ptr[i].base_ptr = starting_point + i*BLOCK_SIZE;
@@ -187,13 +238,14 @@ int redFs_update_fstab(Red_Fstab fstab, uint8_t partition_number){
 int redFs_get_free_fragment_offset(uint32_t fragment_map){
 	uint32_t i;
 	for(i=0; i < sizeof(uint32_t)*8;i++){
-		int i = (fragment_map >> i) & 0x01;
-		if(i == 0){
+		int f = (fragment_map >> i) & 0x01;
+		if(f == 0){
 			return i;
 		}
 	}
 	return -1;
 }
+
 
 int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_point, Red_Fstab* fstab){
 
@@ -275,7 +327,10 @@ int redFs_init_disk(uint32_t disk_size){
 int redFs_create_partition(char* name, uint32_t size){
 	if(size < sizeof(Red_Fstab)) return (int)PARTITION_SIZE_NOT_SUFFICIENT;
 	static Red_Fstab fstab = {0};
-	RED_PTR offset = redFs_caclulate_new_partition_offset();
+	RED_PTR offset = redFs_caclulate_new_partition_offset(size);
+	if(offset == 0){
+		return NOT_ENOUGH_DISK_SPACE_ERROR;
+	}
 	
 	int ret = redFs_push_on_partition_table(offset, size, 0);
 	if(ret){
@@ -287,7 +342,8 @@ int redFs_create_partition(char* name, uint32_t size){
 	if(ret) return ret;
 	ret = redFs_update_last_on_partition_table(offset, size, fstab.partition_id);
 	if(ret) return ret;
-	return 0;
+	ret = redFs_sort_sync_partition_table();
+	return ret;
 }
 
 /* 
@@ -320,6 +376,8 @@ int redFs_delete_partition(char*name,uint32_t partition_id){
 				int err = redFs_rewrite_partition_table(ptable);
 				if(err) return err;
 				end = true;
+				err = redFs_sort_sync_partition_table();
+				return err;
 			}
 		}
 	}
@@ -428,7 +486,7 @@ void redFs_print_ptable(){
 void redFs_print_fragmentation_report(Red_Fstab* fstab){
 	printf("RedFs fragmentation report\n");
 	for(uint32_t i=0;i<fstab->block_limit;i++){
-		printf("Memory block %d at 0x%x: ->  ", i, fstab->raw_block_ptr[i].base_ptr);
+		printf("Memory block %d at 0x%x:  ->  ", i, fstab->raw_block_ptr[i].base_ptr);
 		for(uint32_t j=0;j<32;j++){
 			int fstate = fstab->raw_block_ptr[i].fragment_map >> j & 0x01;
 			if(fstate == 1){
@@ -441,6 +499,7 @@ void redFs_print_fragmentation_report(Red_Fstab* fstab){
 		printf("\n");
 	}
 }
+
 
 
 void redFs_strerror(int return_state){
@@ -492,6 +551,9 @@ void redFs_strerror(int return_state){
 			break;
 		case REDFS_UNSUPPORTED_FUNCTION:
 			printf("Error: function not supported\n");
+			break;
+		case REDFS_BLOCK_FRAGMENT_ERROR:
+			printf("Error while trying to read the block fragment map\n");
 			break;
 		default: 
 			printf("Error: Unknown error\n");
