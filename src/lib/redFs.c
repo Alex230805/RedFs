@@ -505,58 +505,61 @@ void redFs_print_fragmentation_report(Red_Fstab* fstab){
 void redFs_strerror(int return_state){
 	switch(return_state){
 		case NOERROR:
-			printf("No error reported during operation\n");
+			fprintf(stderr,"No error reported during operation\n");
 			break;
 		case PARTITION_TABLE_FORMAT_ERROR: 
-			printf("Error: Unable to format the partition table\n");
+			fprintf(stderr,"Error: Unable to format the partition table\n");
 			break;
 		case BOOT_SECTOR_WRITING_ERROR: 
-			printf("Error: Unable to write the boot sector\n");
+			fprintf(stderr,"Error: Unable to write the boot sector\n");
 			break;
 		case PARTITION_TABLE_WRITE_ERROR: 
-			printf("Error: Partition table writing error, cannot update partition table\n");
+			fprintf(stderr,"Error: Partition table writing error, cannot update partition table\n");
 			break;
 		case PARTITION_TABLE_READ_ERROR: 
-			printf("Error: Partition table writing error, cannot get partition table\n");
+			fprintf(stderr,"Error: Partition table writing error, cannot get partition table\n");
 			break;
 		case PARTITION_NOT_FOUND_ERROR: 
-			printf("Error: Unable to find the specified partition\n");
+			fprintf(stderr,"Error: Unable to find the specified partition\n");
 			break;
 		case NOT_ENOUGH_DISK_SPACE_ERROR: 
-			printf("Error: Not enough disk space available\n");
+			fprintf(stderr,"Error: Not enough disk space available\n");
 			break;
 		case FSTAB_READ_ERROR: 
-			printf("Error: Unable to read fstab\n");
+			fprintf(stderr,"Error: Unable to read fstab\n");
 			break;
 		case FSTAB_WRITE_ERROR: 
-			printf("Error: Unable to write fstab\n");
+			fprintf(stderr,"Error: Unable to write fstab\n");
 			break;
 		case FSTAB_PAGE_WRITE_ERROR: 
-			printf("Error: Cannot write partition page due to a write error\n");
+			fprintf(stderr,"Error: Cannot write partition page due to a write error\n");
 			break;
 		case PARTITION_FORMAT_DISK_ERROR: 
-			printf("Error: Unable to format partition due to a disk error\n");
+			fprintf(stderr,"Error: Unable to format partition due to a disk error\n");
 			break;
 		case PARTITION_SIZE_NOT_SUFFICIENT:
-			printf("Error: The specified partition size is not sufficient to store even the fstab\n");
+			fprintf(stderr,"Error: The specified partition size is not sufficient to store even the fstab\n");
 			break;
 		case PARTITION_ACTION_UNKNOWN: 
-			printf("Partition action error: the required action could not be performed since it doesn't exist or it's still under development\n");
+			fprintf(stderr,"Partition action error: the required action could not be performed since it doesn't exist or it's still under development\n");
 			break;
 		case PARTITION_NODE_WRITING_ERROR:
-			printf("Error: unable to allocate new node for this partition\n");
+			fprintf(stderr,"Error: unable to allocate new node for this partition\n");
 			break;
 		case PARTITION_NODE_READING_ERROR:
-			printf("Error: unable to read node or node content from this partition\n");
+			fprintf(stderr,"Error: unable to read node or node content from this partition\n");
 			break;
 		case REDFS_UNSUPPORTED_FUNCTION:
-			printf("Error: function not supported\n");
+			fprintf(stderr,"Error: function not supported\n");
 			break;
 		case REDFS_BLOCK_FRAGMENT_ERROR:
-			printf("Error while trying to read the block fragment map\n");
+			fprintf(stderr,"Error while trying to read the block fragment map\n");
+			break;
+		case NODE_ALLOCATION_ERROR: 
+			fprintf(stderr,"Could not allocate node due to a disk error\n");
 			break;
 		default: 
-			printf("Error: Unknown error\n");
+			fprintf(stderr,"Error: Unknown error\n");
 			break;
 	}
 }

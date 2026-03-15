@@ -134,23 +134,25 @@ int main(){
 	redFs_print_ptable();
 
 	SEP();
-	printf("Testing folder creation, showing node content\n");
-	redFs_node_show_content(f_header.current_node);
-	for(int i=0;i<10;i++){
+	printf("Testing folder creation\n");
+	printf("\nCreating folder list, wait a few seconds ..\n");
+	for(int i=0;i<340;i++){
 		char buffer[8];
 		char name[16];
 		strcpy(name, "folder_");
 		sprintf(buffer, "%d", i);
 		strcat(name, buffer);
-		ret = redFs_node_alloc(&f_header, name, 0, PAGE_IS_FOLDER);
+		ret = redFs_node_create_child_node(&f_header, name, 0, PAGE_IS_FOLDER, f_header.current_node);
 		if(ret){
 			redFs_strerror(ret);
 			return ret;
 		}
-		printf("Creating folder %s\n", name);
+		//printf("Creating folder %s\n", name);
 	}
-	redFs_node_show_content(f_header.current_node);
-	printf("Printing fragment map: \n");
+	redFs_node_show(f_header.current_node);
+
+	SEP()
+	printf("\nPrinting fragment map after folder allocation: \n");
 	redFs_print_fragmentation_report(&f_header.fstab);
 	redFs_close_static_virtual_memory();
 	return 0;
