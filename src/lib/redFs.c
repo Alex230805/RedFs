@@ -558,6 +558,17 @@ void redFs_strerror(int return_state){
 		case NODE_ALLOCATION_ERROR: 
 			fprintf(stderr,"Could not allocate node due to a disk error\n");
 			break;
+		case NODE_NOT_FOUND:
+			fprintf(stderr,"Could not locate the specified node\n");
+			break;
+		case NODE_IS_NOT_A_FOLDER_ERROR:
+			fprintf(stderr, "The specified node is not a folder, cannot search for folders inside this node\n");
+			break;
+		case NODE_RECURSIVE_DEALLOCATION_ERROR:
+			fprintf(stderr, "Recursive deallocation failed\n");
+			break;
+		case NODE_DEALLOCATION_ERROR:
+			fprintf(stderr, "Could not deallocate node\n");
 		default: 
 			fprintf(stderr,"Error: Unknown error\n");
 			break;

@@ -103,11 +103,161 @@ RED_PTR redFs_node_alloc(Red_Header* header, char* name, uint8_t permissions, ui
 	return node_adr;
 }
 
+int redFs_node_dealloc(Red_Header* header, RED_PTR ptr){
+	uint32_t block_tracker = 0;
+	Red_Node node = {0};
+	int ret = redFs_node_read(ptr, &node);
+	if(ret) return ret;
+	if(node.chained){
+		ret =  redFs_node_dealloc(header, node.next_page);
+		if(ret) return ret;	
+	}
+	while(block_tracker < header->fstab.block_limit-1 && ( ptr < header->fstab.raw_block_ptr[block_tracker].base_ptr || ptr > header->fstab.raw_block_ptr[block_tracker+1].base_ptr)){
+		block_tracker+=1;
+	}
+	uint32_t frag_offset = (ptr - header->fstab.raw_block_ptr[block_tracker].base_ptr) / sizeof(Red_Node);
+	uint32_t new_fragment_map = header->fstab.raw_block_ptr[block_tracker].fragment_map;
+	new_fragment_map = new_fragment_map ^ ((1<<frag_offset) & 0xFFFFFFFF);
+	header->fstab.raw_block_ptr[block_tracker].fragment_map = new_fragment_map;
+	header->fstab.raw_block_ptr[block_tracker].node_count -= 1;
+	if(header->fstab.raw_block_ptr[block_tracker].node_count == 0){
+		header->fstab.block_state[block_tracker] = FREE_BLOCK;
+	}else{
+		header->fstab.block_state[block_tracker] = ACTIVE_BLOCK;
+	}
+
+	return 0;
+}
+
+int redFs_node_remove_child_node(Red_Header* header, char*name, RED_PTR father_node){
+	int ret = 0;
+	Red_Node f_node = {0};
+	ret = redFs_node_read(father_node, &f_node);
+	if(ret) return ret;
+	if(f_node.type != PAGE_IS_FOLDER) return (int)NODE_IS_NOT_A_FOLDER_ERROR;
+	bool end = false;
+	RED_PTR ptr = 0;
+
+	while(!end){
+		for(uint32_t i=0;i<f_node.content_count && ptr == 0; i++){
+			Red_Node node = {0};
+			ret = redFs_node_read(f_node.content[i], &node);
+			if(ret) return ret;
+			if(strcmp(node.name, name) == 0){
+				end = true;
+				ptr = f_node.content[i];
+				f_node.content[i] = 0;
+				f_node.content_count -= 1;
+			}
+		}
+		if(ptr == 0){ 
+			if(f_node.chained){	
+				ret = redFs_node_read(f_node.next_page, &f_node);
+				if(ret) return ret;
+			}else{
+				return (int)NODE_NOT_FOUND;
+			}
+		}
+	}
+	ret = redFs_node_dealloc(header, ptr);
+	if(ret) {
+		redFs_strerror(ret);
+		return NODE_DEALLOCATION_ERROR;
+	}
+	
+	header->cache_timing += 1;
+	if(header->cache_timing > header->cache_limit){
+		 ret = redFs_sync_partition(header);
+	}
+	return 0;
+
+}
+
+
+int __redFs_node_recursive_remove(Red_Header* header, RED_PTR father_node){
+	int ret = 0;
+	Red_Node node = {0};
+	ret = redFs_node_read(father_node, &node);
+	if(ret) return ret;
+	if(node.type != PAGE_IS_FOLDER){
+		return -1;
+	}else{
+		// if(node.type == PAGE_IS_FOLDER){
+		for(uint32_t i=0; i < node.content_count; i++){
+			RED_PTR c = node.content[i];
+			int status = __redFs_node_recursive_remove(header, c);
+			if(status > 0){
+				return NODE_RECURSIVE_DEALLOCATION_ERROR;
+			}
+			ret = redFs_node_dealloc(header, c);
+			header->cache_timing += 1;
+			if(header->cache_timing > header->cache_limit){
+				 ret = redFs_sync_partition(header);
+			}
+			if(ret) return NODE_DEALLOCATION_ERROR;
+		}
+		ret = redFs_node_dealloc(header, father_node);
+		header->cache_timing += 1;
+		if(header->cache_timing > header->cache_limit){
+			ret = redFs_sync_partition(header);
+		}
+		// }
+	}
+	return 0;
+}
+
+int redFs_node_recursive_remove_child_node(Red_Header* header, char* name, RED_PTR father_node){
+	int ret = 0;
+	Red_Node f_node = {0};
+	ret = redFs_node_read(father_node, &f_node);
+	if(ret) return ret;
+	if(f_node.type != PAGE_IS_FOLDER) return (int)NODE_IS_NOT_A_FOLDER_ERROR;
+	bool end = false;
+	RED_PTR ptr = 0;
+
+	while(!end){
+		for(uint32_t i=0;i<f_node.content_count && ptr == 0; i++){
+			Red_Node node = {0};
+			ret = redFs_node_read(f_node.content[i], &node);
+			if(ret) return ret;
+			if(strcmp(node.name, name) == 0){
+				end = true;
+				ptr = f_node.content[i];
+				f_node.content[i] = 0;
+				f_node.content_count -= 1;
+			}
+		}
+		if(ptr == 0){ 
+			if(f_node.chained){	
+				ret = redFs_node_read(f_node.next_page, &f_node);
+				if(ret) return ret;
+			}else{
+				return (int)NODE_NOT_FOUND;
+			}
+		}
+	}
+
+	ret = __redFs_node_recursive_remove(header, ptr);
+	if(ret) return ret;
+	header->cache_timing += 1;
+	if(header->cache_timing > header->cache_limit){
+		ret = redFs_sync_partition(header);
+	}
+
+	return 0;
+}
+
 int redFs_node_create_child_node(Red_Header* header, char* name, uint8_t permissions, uint8_t type, RED_PTR father_node){
 	int ret = 0;
+	
+	Red_Node n = {0};
+	ret = redFs_node_read(father_node, &n);
+	if(ret) return ret;
+	if(n.type != PAGE_IS_FOLDER) return (int)NODE_IS_NOT_A_FOLDER_ERROR;
+
+	
 	RED_PTR ptr = redFs_node_alloc(header, name, permissions, type);
 	if(ptr == 0) return NODE_ALLOCATION_ERROR;
-	Red_Node n = {0};
 	ret = redFs_node_read(ptr, &n);
 	if(ret) return ret;
 	n.f_node = father_node;
@@ -175,3 +325,4 @@ void redFs_node_debug_show_content(Red_Node* node){
 	printf("Content count: %d\n", content_count);
 
 }
+

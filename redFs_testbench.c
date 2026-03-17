@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-
+#include <time.h>
 #define VIRTIO
 #include "redFs.h"
 
@@ -13,6 +13,7 @@
 	printf("\n============================================================\n");
 
 int main(){
+	srand(time(NULL));
 	printf("NOTE: file stream on '%s' is open for the entire virtual test\n", VIRTUAL_MEMORY);
 
 	redFs_open_static_virtual_memory(VIRTUAL_MEMORY);
@@ -154,6 +155,22 @@ int main(){
 	SEP()
 	printf("\nPrinting fragment map after folder allocation: \n");
 	redFs_print_fragmentation_report(&f_header.fstab);
+	SEP();
+	printf("Trying to delete random folders from the current node\n");
+	for(uint32_t i=0;i<200 && ret == 0;i++){
+		char buffer[8];
+		char name[16];
+		strcpy(name, "folder_");
+		sprintf(buffer, "%d", (int)(rand()%340));
+		strcat(name, buffer);
+		printf("Deleting folder %s\n", name);
+		ret = redFs_node_remove_child_node(&f_header, name, f_header.current_node);
+	}
+	redFs_print_fragmentation_report(&f_header.fstab);
+	SEP();
+	printf("Testing recursive node remove on a root subdir\n");
+	printf("TODO: to properly do that we need the cd function\n");
+
 	redFs_close_static_virtual_memory();
 	return 0;
 }
