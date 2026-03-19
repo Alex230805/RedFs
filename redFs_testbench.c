@@ -163,7 +163,7 @@ int main(){
 		sprintf(buffer, "%d", (int)(rand()%340));
 		strcat(name, buffer);
 		printf("Deleting folder %s\n", name);
-		ret = redFs_remove_directory(&f_header, name);
+		ret = redFs_remove_directory(&f_header,name);
 
 	}
 	redFs_print_fragmentation_report(&f_header.fstab);
@@ -172,19 +172,18 @@ int main(){
 
 	Red_Header branching_test = {0};
 	redFs_get_partition_header(1006, &branching_test);
-
-	redFs_create_directory(&branching_test, "home", 0);
-	redFs_create_directory(&branching_test, "lib", 0);
-	redFs_create_directory(&branching_test, "etc", 0);
-	redFs_create_directory(&branching_test, "boot", 0);
-	redFs_change_path(&branching_test, "/home/");
-	redFs_create_directory(&branching_test, "am", 0);
-	redFs_create_directory(&branching_test, "bm", 0);
-	redFs_create_directory(&branching_test, "root", 0);
-	redFs_create_directory(&branching_test, "public", 0);
-	redFs_change_path(&branching_test, "../");
+	redFs_create_directory(&branching_test, "/home", 0);
+	redFs_create_directory(&branching_test, "/home/am", 0);
+	redFs_create_directory(&branching_test, "/home/public", 0);
+	redFs_create_directory(&branching_test, "/etc", 0);
+	redFs_create_directory(&branching_test, "/etc/config", 0);
+	redFs_create_directory(&branching_test, "/etc/test", 0);
+	redFs_create_directory(&branching_test, "/lib/libc", 0);
+	redFs_create_directory(&branching_test, "/lib/musl", 0);
+	redFs_create_directory(&branching_test, "/include", 0);
+	redFs_create_directory(&branching_test, "/usr", 0);
 	redFs_get_current_dir_content(&branching_test);
-	redFs_change_path(&branching_test, "/home/");
+	ret = redFs_change_path(&branching_test, "/home");
 	redFs_get_current_dir_content(&branching_test);
 
 	goto quit;

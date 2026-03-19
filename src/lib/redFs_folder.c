@@ -4,7 +4,7 @@
 
 char* redFs_malloc(size_t size){
 	if(redFs_local_buffer_tracker+size > BUFFER_SIZE){
-		redFs_local_buffer_tracker = size;
+		redFs_local_buffer_tracker = 0;
 	}
 	char* ptr = &redFs_local_buffer[redFs_local_buffer_tracker];
 	redFs_local_buffer_tracker += size;
@@ -13,28 +13,34 @@ char* redFs_malloc(size_t size){
 
 char** redFs_chop_path(char* path){
 	uint32_t len = 0;
+	if(strlen(path) < 1) return NULL;
+	if(path[0] == '/'){ path+=sizeof(char);}
+	
 	for(uint32_t i=0;i<strlen(path);i++){
 		if(path[i] == '/') len += 1;	
 	}
-	if(strlen(path) < 1) return NULL;
-	if(path[0] == '/'){ path+=sizeof(char);}
 
-	char** folder_list = (char**)redFs_malloc(sizeof(char*)*(len+1));
+	char** folder_list = (char**)redFs_malloc(sizeof(char*)*(len+2));
 	folder_list = &folder_list[1];
 
 	char* ptr = strchr(path, '/');
-	uint32_t subdir_count = 0;
 	bool halt = false;
+	uint32_t subdir_count = 0;
+
+	if(ptr == NULL) {
+		ptr = strchr(path, '\0');
+		halt = true;
+	}
 	while(true){
 		char* buffer = (char*)redFs_malloc(sizeof(char)*STRING_LIMIT);
 		if(ptr-path > 0){
 			memcpy(buffer, path, ptr-path);
-			buffer[STRING_LIMIT-1] = '\0';
+			buffer[(ptr-path)] = '\0';
 			folder_list[subdir_count] = buffer;
 			subdir_count += 1;
 		}
-		path = ptr+sizeof(char);
 		if(halt) break;
+		path = ptr+sizeof(char);
 		ptr = strchr(path, '/');
 		if(ptr == NULL){
 			ptr = strchr(path, '\0');
@@ -46,6 +52,16 @@ char** redFs_chop_path(char* path){
 	folder_list[-1] = len_buffer;
 
 	return folder_list;
+}
+
+char* redFs_path_pop_last(char** chopped_path){
+	uint32_t len;
+	memcpy(&len,chopped_path[-1], sizeof(uint32_t));
+	if(len == 0) return NULL;
+	char* name = chopped_path[len-1];
+	len -= 1;
+	memcpy(chopped_path[-1],&len, sizeof(uint32_t));
+	return name;
 }
 
 uint32_t redFs_get_path_dir_count(char** chopped_path){
@@ -61,9 +77,6 @@ int redFs_get_current_directory(Red_Header* header, Red_Node* node){
 
 
 int redFs_change_directory(Red_Header* header, char* dir_name){ // '.' and '..' are supported
-	/* TODO: add chop function to include the complete path*/
-	
-	
 	int ret = 0;
 	Red_Node node = {0};
 	Red_Node n = {0};
@@ -101,15 +114,40 @@ int redFs_change_directory(Red_Header* header, char* dir_name){ // '.' and '..' 
 	return 0;
 }
 
-int redFs_create_directory(Red_Header* header, char* name, int permissions){
-	/* TODO: add chop function to include the complete path*/
-	return redFs_node_create_child_node(header, name, permissions, PAGE_IS_FOLDER, header->current_node);
+/* "full_path" means the path and the name of the folder included. It could be 
+ * a static or a relative path
+ * */
+
+int redFs_create_directory(Red_Header* header, char* full_path, int permissions){
+	char** cp = redFs_chop_path(full_path);
+	char* name = redFs_path_pop_last(cp);
+	int ret = 0;
+	RED_PTR cache = header->current_node;
+	if(full_path[0] == '/') header->current_node = header->root;
+	for(uint32_t i=0; i < redFs_get_path_dir_count(cp); i++){
+		ret = redFs_change_directory(header, cp[i]);
+		if(ret) return ret;
+	}
+	ret = redFs_node_create_child_node(header, name, permissions, PAGE_IS_FOLDER, header->current_node);
+	if(ret) return ret;
+	header->current_node = cache;
+	return 0;
 }
 
-int redFs_remove_directory(Red_Header* header, char*name){
-	/* TODO: add chop function to include the complete path*/
-	// int ret = redFs_change_path(Red_Header*header, char* path);
-	return redFs_node_remove_child_node(header, name, header->current_node);
+int redFs_remove_directory(Red_Header* header, char*full_path){
+	char** cp = redFs_chop_path(full_path);
+	char* name = redFs_path_pop_last(cp);
+	RED_PTR cache = header->current_node;
+	int ret = 0;
+	if(full_path[0] == '/') header->current_node = header->root;
+	for(uint32_t i=0; i < redFs_get_path_dir_count(cp); i++){
+		ret = redFs_change_directory(header, cp[i]);
+		if(ret) return ret;
+	}
+	ret = redFs_node_remove_child_node(header, name, header->current_node);
+	if(ret) return ret;
+	header->current_node = cache;
+	return 0; 
 }
 
 char* redFs_get_current_dir_name(Red_Header* header){
@@ -154,6 +192,11 @@ int redFs_get_current_dir_content(Red_Header* header){
 		}
 	}
 	return 0;
+}
+
+int redFs_change_absolute_path(Red_Header* header, char* path){
+	header->current_node = header->root;
+	return redFs_change_path(header, path);
 }
 
 int redFs_change_path(Red_Header*header, char* path){
