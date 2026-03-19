@@ -570,6 +570,9 @@ void redFs_strerror(int return_state){
 		case NODE_RECURSIVE_DEALLOCATION_ERROR:
 			fprintf(stderr, "Recursive deallocation failed\n");
 			break;
+		case FOLDER_NOT_FOUND_ERROR:
+			fprintf(stderr, "Error: no such folder\n");
+			break;
 		default: 
 			fprintf(stderr,"Error: Unknown error\n");
 			break;

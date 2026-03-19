@@ -17,7 +17,6 @@ int main(){
 	printf("NOTE: file stream on '%s' is open for the entire virtual test\n", VIRTUAL_MEMORY);
 
 	redFs_open_static_virtual_memory(VIRTUAL_MEMORY);
-
 	printf("General stats:\n");
 	printf("Size of redfstab: %.2f Mb\n", (double)sizeof(Red_Fstab)/1000000);
 	printf("Memory block size: %d\n", BLOCK_SIZE);
@@ -143,12 +142,12 @@ int main(){
 		strcpy(name, "folder_");
 		sprintf(buffer, "%d", i);
 		strcat(name, buffer);
-		ret = redFs_node_create_child_node(&f_header, name, 0, PAGE_IS_FOLDER, f_header.current_node);
+		ret = redFs_create_directory(&f_header, name, 0);
 		if(ret){
 			redFs_strerror(ret);
 			return ret;
 		}
-		//printf("Creating folder %s\n", name);
+		printf("Creating folder %s\n", name);
 	}
 	redFs_node_show(f_header.current_node);
 
@@ -164,13 +163,38 @@ int main(){
 		sprintf(buffer, "%d", (int)(rand()%340));
 		strcat(name, buffer);
 		printf("Deleting folder %s\n", name);
-		ret = redFs_node_remove_child_node(&f_header, name, f_header.current_node);
+		ret = redFs_remove_directory(&f_header, name);
+
 	}
 	redFs_print_fragmentation_report(&f_header.fstab);
 	SEP();
+	printf("Generating one filesystem tree\n");
+
+	Red_Header branching_test = {0};
+	redFs_get_partition_header(1006, &branching_test);
+
+	redFs_create_directory(&branching_test, "home", 0);
+	redFs_create_directory(&branching_test, "lib", 0);
+	redFs_create_directory(&branching_test, "etc", 0);
+	redFs_create_directory(&branching_test, "boot", 0);
+	redFs_change_path(&branching_test, "/home/");
+	redFs_create_directory(&branching_test, "am", 0);
+	redFs_create_directory(&branching_test, "bm", 0);
+	redFs_create_directory(&branching_test, "root", 0);
+	redFs_create_directory(&branching_test, "public", 0);
+	redFs_change_path(&branching_test, "../");
+	redFs_get_current_dir_content(&branching_test);
+	redFs_change_path(&branching_test, "/home/");
+	redFs_get_current_dir_content(&branching_test);
+
+	goto quit;
+
+	SEP();
 	printf("Testing recursive node remove on a root subdir\n");
 	printf("TODO: to properly do that we need the cd function\n");
+	goto quit;
 
+quit:
 	redFs_close_static_virtual_memory();
 	return 0;
 }

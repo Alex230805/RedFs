@@ -70,6 +70,7 @@ typedef enum{
 	NODE_NOT_FOUND,
 	NODE_IS_NOT_A_FOLDER_ERROR,
 	NODE_RECURSIVE_DEALLOCATION_ERROR,
+	FOLDER_NOT_FOUND_ERROR
 }Red_State;
 
 
@@ -228,6 +229,7 @@ typedef struct{
 
 #include "redFs_io.h"
 #include "redFs_node.h"
+#include "redFs_folder.h"
 
 int redFs_format_partition_table(uint32_t max_disk_size);
 int redFs_write_boot_sector(uint8_t*content, uint32_t len);
