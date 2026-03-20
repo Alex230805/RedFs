@@ -204,18 +204,29 @@ int redFs_get_current_dir_content(Red_Header* header){
 	return ret;
 }
 
-int redFs_change_absolute_path(Red_Header* header, char* path){
-	header->current_node = header->root;
-	int ret = redFs_cache_update(header);
-	if(ret) return ret;
-	return redFs_change_path(header, path);
-}
 
 int redFs_change_path(Red_Header*header, char* path){
+	if(path[0] == '/') header->current_node = header->root;
 	char** chopped_path = redFs_chop_path(path);
 	for(uint32_t i=0; i < redFs_get_path_dir_count(chopped_path); i++){
 		int ret = redFs_change_directory(header, chopped_path[i]);
 		if(ret) return ret;
 	}
 	return 0;
+}
+
+int redFs_get_dir_content(Red_Header* header, char* path){
+	char** chopped_path = redFs_chop_path(path);
+	int ret = 0;
+	RED_PTR cache = header->current_node;
+	if(path[0] == '/') header->current_node = header->root;
+	for(uint32_t i=0; i < redFs_get_path_dir_count(chopped_path); i++){
+		ret = redFs_change_directory(header, chopped_path[i]);
+		if(ret) return ret;
+	}
+	ret = redFs_get_current_dir_content(header);
+	if(ret) return ret;
+	header->current_node = cache;
+	ret = redFs_cache_update(header);
+	return ret;
 }

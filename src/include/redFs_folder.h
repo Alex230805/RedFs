@@ -18,11 +18,12 @@ int redFs_get_current_directory(Red_Header* header, Red_Node* node);
 int redFs_change_directory(Red_Header* header, char* dir_name); // '.' and '..' are supported
 
 char* redFs_get_current_dir_name(Red_Header* header);
-
 int redFs_get_current_dir_content(Red_Header* header);
+int redFs_get_dir_content(Red_Header* header, char* path);
+
 /* wrapper for redFs_change_directory to allow a complete tree navigation*/
 int redFs_change_path(Red_Header*header, char* path);
-int redFs_change_absolute_path(Red_Header* header, char* path);
+
 
 #ifndef REDFS_FOLDER_IMP
 #define REDFS_FOLDER_IMP

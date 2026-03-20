@@ -187,17 +187,15 @@ int main(){
 	redFs_create_directory(&branching_test, "/include", 0);
 	redFs_create_directory(&branching_test, "/usr", 0);
 
-	redFs_get_current_dir_content(&branching_test);
-	ret = redFs_change_path(&branching_test, "/home");
-	redFs_get_current_dir_content(&branching_test);
-	ret = redFs_change_path(&branching_test, "../lib");
-	redFs_get_current_dir_content(&branching_test);
-	ret = redFs_change_path(&branching_test, "../etc");
-	redFs_get_current_dir_content(&branching_test);
+	redFs_get_dir_content(&branching_test, "./");
+	redFs_get_dir_content(&branching_test, "/home");
+	redFs_get_dir_content(&branching_test, "/lib");
+	redFs_get_dir_content(&branching_test, "/etc");
 
 	// call this every time before using another disk or partition.
 	// It will sync the modified fstab to the latest state, not doing 
 	// that will probably cause data loss.
+	printf("Synching back the partition\n");
 	ret = redFs_sync_partition(&branching_test);
 	goto quit;
 
