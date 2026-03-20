@@ -15,7 +15,6 @@
 int main(){
 	srand(time(NULL));
 	printf("NOTE: file stream on '%s' is open for the entire virtual test\n", VIRTUAL_MEMORY);
-
 	redFs_open_static_virtual_memory(VIRTUAL_MEMORY);
 	printf("General stats:\n");
 	printf("Size of redfstab: %.2f Mb\n", (double)sizeof(Red_Fstab)/1000000);
@@ -175,17 +174,31 @@ int main(){
 	redFs_create_directory(&branching_test, "/home", 0);
 	redFs_create_directory(&branching_test, "/home/am", 0);
 	redFs_create_directory(&branching_test, "/home/public", 0);
+
 	redFs_create_directory(&branching_test, "/etc", 0);
 	redFs_create_directory(&branching_test, "/etc/config", 0);
 	redFs_create_directory(&branching_test, "/etc/test", 0);
+
+	redFs_create_directory(&branching_test, "/lib", 0);
 	redFs_create_directory(&branching_test, "/lib/libc", 0);
 	redFs_create_directory(&branching_test, "/lib/musl", 0);
+	redFs_create_directory(&branching_test, "/lib/bison", 0);
+
 	redFs_create_directory(&branching_test, "/include", 0);
 	redFs_create_directory(&branching_test, "/usr", 0);
+
 	redFs_get_current_dir_content(&branching_test);
 	ret = redFs_change_path(&branching_test, "/home");
 	redFs_get_current_dir_content(&branching_test);
+	ret = redFs_change_path(&branching_test, "../lib");
+	redFs_get_current_dir_content(&branching_test);
+	ret = redFs_change_path(&branching_test, "../etc");
+	redFs_get_current_dir_content(&branching_test);
 
+	// call this every time before using another disk or partition.
+	// It will sync the modified fstab to the latest state, not doing 
+	// that will probably cause data loss.
+	ret = redFs_sync_partition(&branching_test);
 	goto quit;
 
 	SEP();

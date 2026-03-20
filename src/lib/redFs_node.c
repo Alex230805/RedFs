@@ -94,11 +94,8 @@ RED_PTR redFs_node_alloc(Red_Header* header, char* name, uint8_t permissions, ui
 		header->fstab.block_state[i] = FULL_BLOCK;
 	}
 	
-	// updating caching counter
-	header->cache_timing += 1;
-	if(header->cache_timing > header->cache_limit){
-		 ret = redFs_sync_partition(header);
-	}
+	ret = redFs_cache_update(header);
+	if(ret) return 0;
 	
 	return node_adr;
 }
@@ -126,6 +123,7 @@ int redFs_node_dealloc(Red_Header* header, RED_PTR ptr){
 		header->fstab.block_state[block_tracker] = ACTIVE_BLOCK;
 	}
 
+	ret = redFs_cache_update(header);
 	return 0;
 }
 
@@ -165,10 +163,8 @@ int redFs_node_remove_child_node(Red_Header* header, char*name, RED_PTR father_n
 		return NODE_DEALLOCATION_ERROR;
 	}
 	
-	header->cache_timing += 1;
-	if(header->cache_timing > header->cache_limit){
-		 ret = redFs_sync_partition(header);
-	}
+	ret = redFs_cache_update(header);
+	if(ret) return ret;
 	return 0;
 
 }
@@ -197,10 +193,8 @@ int __redFs_node_recursive_remove(Red_Header* header, RED_PTR father_node){
 			if(ret) return NODE_DEALLOCATION_ERROR;
 		}
 		ret = redFs_node_dealloc(header, father_node);
-		header->cache_timing += 1;
-		if(header->cache_timing > header->cache_limit){
-			ret = redFs_sync_partition(header);
-		}
+		ret = redFs_cache_update(header);
+		if(ret) return ret;
 		// }
 	}
 	return 0;
@@ -239,10 +233,8 @@ int redFs_node_recursive_remove_child_node(Red_Header* header, char* name, RED_P
 
 	ret = __redFs_node_recursive_remove(header, ptr);
 	if(ret) return ret;
-	header->cache_timing += 1;
-	if(header->cache_timing > header->cache_limit){
-		ret = redFs_sync_partition(header);
-	}
+	ret = redFs_cache_update(header);
+	if(ret) return ret;
 
 	return 0;
 }
@@ -264,12 +256,8 @@ int redFs_node_create_child_node(Red_Header* header, char* name, uint8_t permiss
 	ret = redFs_node_write(ptr, &n);
 	if(ret) return ret;
 
-	ret = redFs_node_update_content_list(header, father_node, ptr);
-	
-	header->cache_timing += 1;
-	if(header->cache_timing > header->cache_limit){
-		 ret = redFs_sync_partition(header);
-	}
+	ret = redFs_node_update_content_list(header, father_node, ptr);	
+	ret = redFs_cache_update(header);
 	return ret;
 }
 

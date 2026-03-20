@@ -251,6 +251,7 @@ void redFs_print_fragmentation_report(Red_Fstab* fstab);
 int redFs_get_free_fragment_offset(uint32_t fragment_map);
 int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_address, Red_Fstab* fstab);
 void redFs_debug_print_fstab(Red_Fstab* fstab);
+int redFs_cache_update(Red_Header *header);
 
 /*
  *
@@ -277,7 +278,6 @@ void redFs_print_partition_header(Red_Header* rh);
  * */
 
 int redFs_sync_partition(Red_Header* header);
-
 
 #ifndef REDFS_IMP
 #define REDFS_IMP

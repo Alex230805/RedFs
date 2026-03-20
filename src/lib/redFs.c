@@ -589,3 +589,12 @@ int redFs_sync_partition(Red_Header* header){
 	header->cache_timing = 0;
 	return 0;
 }
+
+int redFs_cache_update(Red_Header *header){
+	header->cache_timing += 1;
+	int ret = 0;
+	if(header->cache_timing > header->cache_limit){
+		 ret = redFs_sync_partition(header);
+	}
+	return ret;
+}
