@@ -70,7 +70,12 @@ typedef enum{
 	NODE_NOT_FOUND,
 	NODE_IS_NOT_A_FOLDER_ERROR,
 	NODE_RECURSIVE_DEALLOCATION_ERROR,
-	FOLDER_NOT_FOUND_ERROR
+	FOLDER_NOT_FOUND_ERROR,
+	FILE_ALLOCATION_ERROR,
+	FILE_NOT_FOUND_ERROR,
+	FILE_POINTER_ERROR,
+	FILE_TOO_SMALL_ERROR,
+	FILE_DEALLOCATION_ERROR
 }Red_State;
 
 
@@ -104,7 +109,7 @@ typedef struct{
 #define BLOCK_NODE_COUNT ( BLOCK_SIZE / NODE_SIZE )
 
 #define NODE_ARRAY_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(uint32_t)+(sizeof(RED_PTR)*4))))
-#define NODE_FILE_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(RED_PTR)*4)))
+#define NODE_FILE_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(RED_PTR)*3)+sizeof(uint32_t))-8)
 
 
 #define PAGE_STATE_TYPE uint8_t
@@ -149,9 +154,10 @@ typedef struct Red_File{
 	char name[STRING_LIMIT];
 	uint8_t permissions;
 	bool chained;
+	uint32_t file_size;
 	RED_PTR	 prev_page;
 	RED_PTR  next_page;
-	uint8_t content[NODE_FILE_LIMIT-4];
+	uint8_t content[NODE_FILE_LIMIT];
 }Red_File;
 
 
@@ -230,6 +236,7 @@ typedef struct{
 #include "redFs_io.h"
 #include "redFs_node.h"
 #include "redFs_folder.h"
+#include "redFs_file.h"
 
 int redFs_format_partition_table(uint32_t max_disk_size);
 int redFs_write_boot_sector(uint8_t*content, uint32_t len);

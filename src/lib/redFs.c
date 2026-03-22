@@ -573,6 +573,21 @@ void redFs_strerror(int return_state){
 		case FOLDER_NOT_FOUND_ERROR:
 			fprintf(stderr, "Error: no such folder\n");
 			break;
+		case FILE_ALLOCATION_ERROR:
+			fprintf(stderr, "Unable to create file in the current directory due to a partition error\n");
+			break;
+		case FILE_NOT_FOUND_ERROR:
+			fprintf(stderr, "File not found\n");
+			break;
+		case FILE_POINTER_ERROR:
+			fprintf(stderr, "File pointer error: unable to read the complete file from the filesystem\n");
+			break;
+		case FILE_TOO_SMALL_ERROR:
+			fprintf(stderr, "Cannot read the specified size: file is smaller\n");
+			break;
+		case FILE_DEALLOCATION_ERROR:
+			fprintf(stderr, "Cannot remove/deallocate file\n");
+			break;
 		default: 
 			fprintf(stderr,"Error: Unknown error\n");
 			break;

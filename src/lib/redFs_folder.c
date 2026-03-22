@@ -175,21 +175,23 @@ int redFs_get_current_dir_content(Red_Header* header){
 	uint32_t count = redFs_node_get_content_count(&node);
 	uint32_t i=0;
 	printf("Content of %s:\n\n", node.name);
-	printf("perm	type	name\n\n");
-	printf(".  0x%x\tfolder\t./\n", PAGE_DEF_PERMISSION);
-	printf(".  0x%x\tfolder\t../\n", PAGE_DEF_PERMISSION);
+	printf("perm	type	size	name\n\n");
+	printf(". 0x%x\tfolder\t%.1f Kb\t./\n",PAGE_DEF_PERMISSION, (float)(sizeof(Red_Node)/1024));
+	printf(". 0x%x\tfolder\t%.1f Kb\t../\n",PAGE_DEF_PERMISSION, (float)(sizeof(Red_Node)/1024));
 	while(i < count){
 		for(uint32_t j=0;j<node.content_count;j++, i++){
 			Red_Node n = {0};
 			ret = redFs_node_read(node.content[j], &n);
 			if(ret) return ret;
-			printf(".  0x%x", n.permissions);
+			printf(". 0x%x", n.permissions);
 			if(n.type == PAGE_IS_FOLDER){
-				printf("\tfolder\t");
-				printf("%s/\n", n.name);
+				printf("\tfolder");
+				printf("\t%.1f Kb", (float)(sizeof(Red_Node)/1024));
+				printf("\t%s/\n", n.name);
 			}else{
-				printf("\tfile\t");
-				printf("%s\n", n.name);
+				printf("\tfile");
+				printf("\t%.1f Kb", (float)(redFs_get_current_file_size(header, n.name)/1024));
+				printf("\t%s\n", n.name);
 			}
 		}
 		if(node.chained){

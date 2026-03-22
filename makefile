@@ -21,6 +21,7 @@ lib_virt: ./src/lib/redFs.c ./src/lib/redFs_io.c ./src/lib/redFs_folder.c ./src/
 	$(COMP) $(FLAGS) $(INC) -g -DVIRTIO -c ./src/lib/redFs_io.c -o ./src/bin/redFs_io.o
 	$(COMP) $(FLAGS) $(INC) -g -c ./src/lib/redFs_node.c -o ./src/bin/redFs_node.o
 	$(COMP) $(FLAGS) $(INC) -g -c ./src/lib/redFs_folder.c -o ./src/bin/redFs_folder.o
+	$(COMP) $(FLAGS) $(INC) -c ./src/lib/redFs_file.c -o ./src/bin/redFs_file.o
 	ar rc ./src/bin/libredfs.a ./src/bin/*.o
 	ranlib ./src/bin/libredfs.a
 
@@ -30,5 +31,6 @@ lib: ./src/lib/redFs.c ./src/lib/redFs_io.c ./src/lib/redFs_folder.c
 	$(COMP) $(FLAGS) $(INC) -c ./src/lib/redFs_io.c -o ./src/bin/redFs_io.o
 	$(COMP) $(FLAGS) $(INC) -c ./src/lib/redFs_node.c -o ./src/bin/redFs_node.o
 	$(COMP) $(FLAGS) $(INC) -c ./src/lib/redFs_folder.c -o ./src/bin/redFs_folder.o
+	$(COMP) $(FLAGS) $(INC) -c ./src/lib/redFs_file.c -o ./src/bin/redFs_file.o
 	ar rc ./src/bin/libredfs.a ./src/bin/*.o
 	ranlib ./src/bin/libredfs.a

@@ -24,6 +24,8 @@ void redFs_node_debug_show_content(Red_Node* node);
 int redFs_node_get_content_count(Red_Node* node);
 void redFs_node_debug_show_content_array(Red_Node* node, int c_base);
 
+/* NOTE: this function does not deallocate the child ptr from the father node*/
+int redFs_node_pop_child_node_with_ptr(Red_Header* header, RED_PTR child, RED_PTR father_node);
 
 int redFs_node_create_child_node(Red_Header* header, char* name, uint8_t permissions, uint8_t type, RED_PTR father_node);
 int redFs_node_remove_child_node(Red_Header* header, char*name, RED_PTR father_node);

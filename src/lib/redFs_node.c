@@ -127,6 +127,45 @@ int redFs_node_dealloc(Red_Header* header, RED_PTR ptr){
 	return 0;
 }
 
+/* NOTE: this function does not deallocate the child ptr from the father node*/
+int redFs_node_pop_child_node_with_ptr(Red_Header* header, RED_PTR child, RED_PTR father_node){
+	int ret = 0;
+	Red_Node f_node = {0};
+	ret = redFs_node_read(father_node, &f_node);
+	if(ret) return ret;
+	if(f_node.type != PAGE_IS_FOLDER) return (int)NODE_IS_NOT_A_FOLDER_ERROR;
+	bool end = false;
+	RED_PTR ptr = 0;
+
+	while(!end){
+		for(uint32_t i=0;i<f_node.content_count && ptr == 0; i++){
+			Red_Node node = {0};
+			ret = redFs_node_read(f_node.content[i], &node);
+			if(ret) return ret;
+			if(child == f_node.content[i]){
+				end = true;
+				ptr = f_node.content[i];
+				f_node.content[i] = 0;
+				f_node.content_count -= 1;
+				ret = redFs_node_write(father_node, &f_node);
+				if(ret) return ret;
+			}
+		}
+		if(ptr == 0){ 
+			if(f_node.chained){	
+				ret = redFs_node_read(f_node.next_page, &f_node);
+				if(ret) return ret;
+			}else{
+				return (int)NODE_NOT_FOUND;
+			}
+		}
+	}
+	ret = redFs_cache_update(header);
+	if(ret) return ret;
+	return 0;
+}
+
+
 int redFs_node_remove_child_node(Red_Header* header, char*name, RED_PTR father_node){
 	int ret = 0;
 	Red_Node f_node = {0};
@@ -146,6 +185,8 @@ int redFs_node_remove_child_node(Red_Header* header, char*name, RED_PTR father_n
 				ptr = f_node.content[i];
 				f_node.content[i] = 0;
 				f_node.content_count -= 1;
+				ret = redFs_node_write(father_node, &f_node);
+				if(ret) return ret;
 			}
 		}
 		if(ptr == 0){ 
@@ -219,6 +260,8 @@ int redFs_node_recursive_remove_child_node(Red_Header* header, char* name, RED_P
 				ptr = f_node.content[i];
 				f_node.content[i] = 0;
 				f_node.content_count -= 1;
+				ret = redFs_node_write(father_node, &f_node);
+				if(ret) return ret;
 			}
 		}
 		if(ptr == 0){ 
@@ -311,6 +354,5 @@ void redFs_node_debug_show_content(Red_Node* node){
 	printf("Father node: 0x%x\n", node->f_node);
 	printf("Permissions: %d\n", node->permissions);
 	printf("Content count: %d\n", content_count);
-
 }
 

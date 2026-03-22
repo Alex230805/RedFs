@@ -155,7 +155,7 @@ int main(){
 	redFs_print_fragmentation_report(&f_header.fstab);
 	SEP();
 	printf("Trying to delete random folders from the current node\n");
-	for(uint32_t i=0;i<200 && ret == 0;i++){
+	for(uint32_t i=0;i<100 && ret == 0;i++){
 		char buffer[8];
 		char name[16];
 		strcpy(name, "folder_");
@@ -163,7 +163,6 @@ int main(){
 		strcat(name, buffer);
 		printf("Deleting folder %s\n", name);
 		ret = redFs_remove_directory(&f_header,name);
-
 	}
 	redFs_print_fragmentation_report(&f_header.fstab);
 	SEP();
@@ -197,8 +196,64 @@ int main(){
 	// that will probably cause data loss.
 	printf("Synching back the partition\n");
 	ret = redFs_sync_partition(&branching_test);
-	goto quit;
 
+	SEP();
+	printf("Testing files\n");
+	
+	FILE* f = fopen("./filetest.txt", "r");
+	printf("Opening test file\n");
+	if(f == NULL){
+		fprintf(stderr, "Unable to open test file: %s\n", strerror(errno));
+		return errno;
+	}
+
+	fseek(f, 0, SEEK_END);
+	int size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	char* test_file = (char*)malloc(sizeof(char)*size);
+	fread(test_file, sizeof(char), size, f);
+	fclose(f);
+	printf("Test file size: %d\n", size);
+	printf("Writing down the test file\n");
+	ret =  redFs_touch_file_in_current_location(&branching_test, "readme.txt", 0);
+	if(ret){
+		redFs_strerror(ret);
+		return 0;
+	}
+	ret = redFs_write_file_in_current_location(&branching_test, "readme.txt", (uint8_t*)test_file, sizeof(char)*size);
+	printf("Done\n");
+	free(test_file);
+	test_file = NULL;
+
+	printf("Showing dir content\n");
+	redFs_get_dir_content(&branching_test, "./");
+	printf("\n");
+	if(ret){
+		redFs_strerror(ret);
+		return 0;
+	}
+	printf("File of the test file from the filesystem: %d\n", redFs_get_current_file_size(&branching_test, "readme.txt"));
+	printf("Reading %d bytes from the file\n", 512);
+	char reading_test[512];
+	ret = redFs_read_file_in_current_location(&branching_test, "readme.txt", (uint8_t*)reading_test, 512);
+	printf("Content from the buffer: \n\n'''\n%s\n'''\n", reading_test);
+	
+	SEP();
+	printf("Removing file, testing deallocation\n");
+	ret = redFs_remove_file_in_current_location(&branching_test, "readme.txt");
+	if(ret){
+		redFs_strerror(ret);
+		return ret;
+	}
+	printf("Showing dir content\n");
+	redFs_get_dir_content(&branching_test, "./");
+	printf("\nTry removing it again\n");
+	ret = redFs_remove_file_in_current_location(&branching_test, "readme.txt");
+	if(ret){
+		redFs_strerror(ret);
+	}
+	goto quit;
+	
 	SEP();
 	printf("Testing recursive node remove on a root subdir\n");
 	printf("TODO: to properly do that we need the cd function\n");

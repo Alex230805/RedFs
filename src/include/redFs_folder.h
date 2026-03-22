@@ -2,6 +2,7 @@
 #define REDFS_FOLDER_H
 
 #include "redFs.h"
+#include "redFs_file.h"
 #define BUFFER_SIZE 4096*2
 
 static char redFs_local_buffer[BUFFER_SIZE];
