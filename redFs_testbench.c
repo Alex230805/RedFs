@@ -278,14 +278,11 @@ int main(){
 
 	free(test_file);
 	test_file = NULL;
-	goto quit;
 	
-	SEP();
-	printf("Testing recursive node remove on a root subdir\n");
-	printf("TODO: to properly do that we need the cd function\n");
-	goto quit;
+	ret = redFs_sync_partition(&branching_test);
 
 quit:
+	printf("Closing testbench\n");
 	redFs_close_static_virtual_memory();
 	return 0;
 }
