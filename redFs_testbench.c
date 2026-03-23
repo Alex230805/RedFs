@@ -215,12 +215,12 @@ int main(){
 	fclose(f);
 	printf("Test file size: %d\n", size);
 	printf("Writing down the test file\n");
-	ret =  redFs_touch_file_in_current_location(&branching_test, "readme.txt", 0);
+	ret =  redFs_touch_file(&branching_test, "./readme.txt", 0);
 	if(ret){
 		redFs_strerror(ret);
 		return 0;
 	}
-	ret = redFs_write_file_in_current_location(&branching_test, "readme.txt", (uint8_t*)test_file, sizeof(char)*size);
+	ret = redFs_write_file(&branching_test, "./readme.txt", (uint8_t*)test_file, sizeof(char)*size);
 	printf("Done\n");
 	free(test_file);
 	test_file = NULL;
@@ -232,15 +232,15 @@ int main(){
 		redFs_strerror(ret);
 		return 0;
 	}
-	printf("File of the test file from the filesystem: %d\n", redFs_get_current_file_size(&branching_test, "readme.txt"));
+	printf("File of the test file from the filesystem: %d\n", redFs_get_file_size(&branching_test, "./readme.txt"));
 	printf("Reading %d bytes from the file\n", 512);
 	char reading_test[512];
-	ret = redFs_read_file_in_current_location(&branching_test, "readme.txt", (uint8_t*)reading_test, 512);
+	ret = redFs_read_file(&branching_test, "./readme.txt", (uint8_t*)reading_test, 512);
 	printf("Content from the buffer: \n\n'''\n%s\n'''\n", reading_test);
 	
 	SEP();
 	printf("Removing file, testing deallocation\n");
-	ret = redFs_remove_file_in_current_location(&branching_test, "readme.txt");
+	ret = redFs_remove_file(&branching_test, "./readme.txt");
 	if(ret){
 		redFs_strerror(ret);
 		return ret;
@@ -248,7 +248,7 @@ int main(){
 	printf("Showing dir content\n");
 	redFs_get_dir_content(&branching_test, "./");
 	printf("\nTry removing it again\n");
-	ret = redFs_remove_file_in_current_location(&branching_test, "readme.txt");
+	ret = redFs_remove_file(&branching_test, "./readme.txt");
 	if(ret){
 		redFs_strerror(ret);
 	}

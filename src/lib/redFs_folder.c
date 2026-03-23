@@ -207,6 +207,14 @@ int redFs_get_current_dir_content(Red_Header* header){
 }
 
 
+int redFs_change_path_already_chopped(Red_Header* header, char** chopped_path){
+	for(uint32_t i=0; i < redFs_get_path_dir_count(chopped_path); i++){
+		int ret = redFs_change_directory(header, chopped_path[i]);
+		if(ret) return ret;
+	}
+	return 0;
+}
+
 int redFs_change_path(Red_Header*header, char* path){
 	if(path[0] == '/') header->current_node = header->root;
 	char** chopped_path = redFs_chop_path(path);

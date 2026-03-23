@@ -12,6 +12,7 @@ char* redFs_malloc(size_t size);
 char** redFs_chop_path(char* path);
 char* redFs_path_pop_last(char** chopped_path);
 uint32_t redFs_get_path_dir_count(char** chopped_path);
+int redFs_change_path_already_chopped(Red_Header* header, char** chopped_path);
 
 int redFs_create_directory(Red_Header* header, char* full_path, int permissions);
 int redFs_remove_directory(Red_Header* header, char*full_path);

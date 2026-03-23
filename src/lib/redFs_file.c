@@ -1,13 +1,30 @@
 #define REDFS_FILE_IMP
 #include "redFs_file.h"
 
-// TODO: add path dependent file functions
 
 int redFs_touch_file_in_current_location(Red_Header* header, char* name, uint8_t permissions){
 	int ret = redFs_cache_update(header);
 	if(ret) return ret;
+	if(redFs_get_file_from_current_folder(header, name) != 0){
+		return 	FILE_ALREADY_EXIST;
+	}
 	return redFs_node_create_child_node(header, name, permissions, PAGE_IS_FILE, header->current_node);
 }
+
+
+int redFs_touch_file(Red_Header* header, char* path, uint8_t permissions){
+	RED_PTR current_node = header->current_node;
+	if(path[0] == '/') header->current_node = header->root;
+	char** cpath = redFs_chop_path(path);
+	char* file_name = redFs_path_pop_last(cpath);
+	int ret = redFs_change_path_already_chopped(header, cpath);
+	if(ret) return ret;
+	ret = redFs_touch_file_in_current_location(header, file_name, permissions);
+	if(ret) return ret;
+	header->current_node = current_node;
+	return 0;
+}
+
 
 RED_PTR redFs_get_file_from_current_folder(Red_Header* header, char*name){
 	Red_Node node = {0};
@@ -38,6 +55,20 @@ RED_PTR redFs_get_file_from_current_folder(Red_Header* header, char*name){
 	return adr;
 }
 
+RED_PTR redFs_get_file(Red_Header* header, char*path){
+	RED_PTR current_node = header->current_node;
+	if(path[0] == '/') header->current_node = header->root;
+	char** cpath = redFs_chop_path(path);
+	char* file_name = redFs_path_pop_last(cpath);
+	RED_PTR node_adr = 0;
+	int ret = redFs_change_path_already_chopped(header, cpath);
+	if(ret) return ret;
+	node_adr = redFs_get_file_from_current_folder(header, file_name);
+	if(node_adr == 0) return FILE_NOT_FOUND_ERROR;
+	header->current_node = current_node;
+	return node_adr;
+}
+
 int __redFs_recursive_remove_file(Red_Header* header, RED_PTR ptr, Red_File* f){
 	int ret = redFs_node_read(ptr, (Red_Node*)f);
 	if(ret) return ret;
@@ -62,6 +93,20 @@ int redFs_remove_file_in_current_location(Red_Header* header, char*name){
 		return FILE_DEALLOCATION_ERROR;
 	}
 	return redFs_node_pop_child_node_with_ptr(header, ptr, header->current_node);
+}
+
+int redFs_remove_file(Red_Header* header, char* path){
+	RED_PTR current_node = header->current_node;
+	if(path[0] == '/') header->current_node = header->root;
+	char** cpath = redFs_chop_path(path);
+	char* file_name = redFs_path_pop_last(cpath);
+	int ret = redFs_change_path_already_chopped(header, cpath);
+	if(ret) return ret;
+	ret = redFs_remove_file_in_current_location(header, file_name);
+	if(ret) return ret;
+	header->current_node = current_node;
+	return 0;
+
 }
 
 int redFs_write_file_in_current_location(Red_Header* header, char*name, uint8_t* buffer, uint32_t size){
@@ -121,6 +166,18 @@ int redFs_write_file_in_current_location(Red_Header* header, char*name, uint8_t*
 	return 0;
 }
 
+int redFs_write_file(Red_Header* header, char*path, uint8_t* buffer, uint32_t size){
+	RED_PTR current_node = header->current_node;
+	if(path[0] == '/') header->current_node = header->root;
+	char** cpath = redFs_chop_path(path);
+	char* file_name = redFs_path_pop_last(cpath);
+	int ret = redFs_change_path_already_chopped(header, cpath);
+	if(ret) return ret;
+	ret = redFs_write_file_in_current_location(header, file_name, buffer, size);
+	if(ret) return ret;
+	header->current_node = current_node;
+	return 0;
+}
 
 int redFs_read_file_in_current_location(Red_Header* header, char*name, uint8_t* buffer, uint32_t size){
 	RED_PTR file_ptr = redFs_get_file_from_current_folder(header, name);
@@ -156,6 +213,19 @@ int redFs_read_file_in_current_location(Red_Header* header, char*name, uint8_t* 
 	return 0;
 }
 
+int redFs_read_file(Red_Header* header, char*path, uint8_t* buffer, uint32_t size){
+	RED_PTR current_node = header->current_node;
+	if(path[0] == '/') header->current_node = header->root;
+	char** cpath = redFs_chop_path(path);
+	char* file_name = redFs_path_pop_last(cpath);
+	int ret = redFs_change_path_already_chopped(header, cpath);
+	if(ret) return ret;
+	ret = redFs_read_file_in_current_location(header, file_name, buffer, size);
+	if(ret) return ret;
+	header->current_node = current_node;
+	return 0;
+}
+
 int redFs_get_current_file_size(Red_Header* header, char*name){
 	RED_PTR file_ptr = redFs_get_file_from_current_folder(header, name);
 	if(file_ptr == 0){
@@ -164,4 +234,16 @@ int redFs_get_current_file_size(Red_Header* header, char*name){
 	Red_File f = {0};
 	if(redFs_node_read(file_ptr, (Red_Node*)&f)) return -1;
 	return f.file_size;
+}
+
+int redFs_get_file_size(Red_Header* header, char* path){
+	RED_PTR current_node = header->current_node;
+	if(path[0] == '/') header->current_node = header->root;
+	char** cpath = redFs_chop_path(path);
+	char* file_name = redFs_path_pop_last(cpath);
+	int ret = redFs_change_path_already_chopped(header, cpath);
+	if(ret) return ret;
+	int size = redFs_get_current_file_size(header, file_name);
+	header->current_node = current_node;
+	return size;
 }

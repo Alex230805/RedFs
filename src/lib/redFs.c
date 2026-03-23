@@ -588,6 +588,9 @@ void redFs_strerror(int return_state){
 		case FILE_DEALLOCATION_ERROR:
 			fprintf(stderr, "Cannot remove/deallocate file\n");
 			break;
+		case FILE_ALREADY_EXIST:
+			fprintf(stderr, "File already exist\n");
+			break;
 		default: 
 			fprintf(stderr,"Error: Unknown error\n");
 			break;
