@@ -222,8 +222,6 @@ int main(){
 	}
 	ret = redFs_write_file(&branching_test, "./readme.txt", (uint8_t*)test_file, sizeof(char)*size);
 	printf("Done\n");
-	free(test_file);
-	test_file = NULL;
 
 	printf("Showing dir content\n");
 	redFs_get_dir_content(&branching_test, "./");
@@ -252,6 +250,34 @@ int main(){
 	if(ret){
 		redFs_strerror(ret);
 	}
+	SEP();
+
+	printf("Testing file overwriting with smaller and bigger size to test the dynamic deallocation\n");
+	redFs_print_fragmentation_report(&branching_test.fstab);
+	ret = redFs_write_file(&branching_test, "./test_0.txt", (uint8_t*)test_file, sizeof(char)*size);
+	if(ret){
+		redFs_strerror(ret);
+		return ret;
+	}
+	redFs_get_dir_content(&branching_test, "./");
+	printf("File content (512 byte window): \n");
+	ret = redFs_read_file(&branching_test, "./test_0.txt", (uint8_t*)reading_test, 512);
+	printf("'''\n%s\n'''\n", reading_test);
+
+	redFs_print_fragmentation_report(&branching_test.fstab);
+	ret = redFs_write_file(&branching_test, "./test_0.txt", (uint8_t*)test_file, sizeof(char)*size/10);
+	if(ret){
+		redFs_strerror(ret);
+		return ret;
+	}
+	redFs_get_dir_content(&branching_test, "./");
+	printf("File content (512 byte window): \n");
+	ret = redFs_read_file(&branching_test, "./test_0.txt", (uint8_t*)reading_test, 512);
+	printf("'''\n%s\n'''\n", reading_test);
+	redFs_print_fragmentation_report(&branching_test.fstab);
+
+	free(test_file);
+	test_file = NULL;
 	goto quit;
 	
 	SEP();

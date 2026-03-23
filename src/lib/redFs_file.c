@@ -124,15 +124,13 @@ int redFs_write_file_in_current_location(Red_Header* header, char*name, uint8_t*
 	for(uint32_t i=0;i<required_space; i++){
 		ret = redFs_node_read(current_ptr, (Red_Node*)&f);
 		f.file_size = size;
-		for(uint32_t j=0;j<NODE_FILE_LIMIT;j++){
-			if(tracker < size){
-				f.content[j] = buffer[tracker];
-				tracker += 1;
-			}
+		for(uint32_t j=0;j<NODE_FILE_LIMIT && tracker < size;j++){
+			f.content[j] = buffer[tracker];
+			tracker += 1;
 		}
 		if(f.chained){
 			if(f.next_page != 0){
-				ret = redFs_node_write(file_ptr, (Red_Node*)&f);
+				ret = redFs_node_write(current_ptr, (Red_Node*)&f);
 				if(ret)	return ret;
 				current_ptr = f.next_page;
 			}else{
@@ -152,7 +150,6 @@ int redFs_write_file_in_current_location(Red_Header* header, char*name, uint8_t*
 	}
 	ret = redFs_cache_update(header);
 	if(ret) return ret;
-
 	if(f.chained){
 		if(f.next_page != 0){
 			ret =  __redFs_recursive_remove_file(header, f.next_page, &f);
