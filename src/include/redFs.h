@@ -33,19 +33,19 @@
  *
  * */
 
-#define REDFS_ID_PREFIX 94694209
-#define REDFS_ID		'R'<<24 | 'D'<<16 | 'F'<<8 | 'S'
-#define REDFS_SUFFIX	96499042
+#define REDFS_ID_PREFIX			94694209
+#define REDFS_ID				'R'<<24 | 'D'<<16 | 'F'<<8 | 'S'
+#define REDFS_SUFFIX			96499042
 
-#define REDFS_VERSION 1
-#define PARTITION_LIMIT 256
-#define BOOT_SECTOR_SIZE 512 // bytes
-#define PARTITION_BLANK_OFFSET 1024 // byte offset that separate two partitions
-#define NODE_SIZE 1024
-//#define NODE_SIZE 512
-#define CACHE_TIME_LIMIT 1024*20 // number of access before the fstab inside the Red_Header is synched to the drive
+#define REDFS_VERSION			1
+#define PARTITION_LIMIT			256     /* number of partition that any redFs partition table can handle */
+#define BOOT_SECTOR_SIZE		512		/* bytes */
+#define PARTITION_BLANK_OFFSET	1024	/* byte offset that separate two partitions */
+#define NODE_SIZE				1024	/* size for a single node */
+#define CACHE_TIME_LIMIT		1024*20 /* number of WRITE access before the fstab inside the Red_Header is synched on the drive */
+#define RED_PTR					uint32_t
 
-#define RED_PTR uint32_t
+/* Enum to define different errors, it's used by redFs_strerror() to check and print the associated message */
 
 typedef enum{
 	NOERROR = 0,
@@ -80,69 +80,61 @@ typedef enum{
 }Red_State;
 
 
-/*
- * RedFs partition table
- *
- * */
-
+/* RedFs partition table */
 
 typedef struct{
 	uint32_t max_disk_size;
-	uint8_t partition_count;
-	RED_PTR partition_list[PARTITION_LIMIT]; // list pointer for each partition
-	uint32_t partition_size[PARTITION_LIMIT]; // in bytes
+	uint8_t  partition_count;
+	RED_PTR	 partition_list[PARTITION_LIMIT]; /* list pointer for each partition */
+	uint32_t partition_size[PARTITION_LIMIT]; /* partition size specified in bytes */
 	uint32_t partition_id[PARTITION_LIMIT];
 }Red_ptable;
 
 
-/*
- * Main redFs nodes to handle folder and file creation
- *
- * */
 
+#define STRING_LIMIT	  16							/* String len limit, it's used for the node/folder/file naming */
+#define PTR_TABLE_TYPE	  uint32_t	
+#define BLOCK_SIZE		  (1024*32)						/* 32k of space per memory block, which is log2(max(PTR_TABLE_TYPE))*NODE_SIZE */
+#define BLOCK_COUNT		  ( 0xFFFFFFFF / BLOCK_SIZE )
+#define BLOCK_NODE_COUNT  ( BLOCK_SIZE / NODE_SIZE  )
 
-#define STRING_LIMIT 16
+#define NODE_ARRAY_LIMIT	(NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(uint32_t)+(sizeof(RED_PTR)*4))))
+#define NODE_FILE_LIMIT		(NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(RED_PTR)*3)+sizeof(uint32_t))-8)
 
-#define PTR_TABLE_TYPE uint32_t
+#define PAGE_STATE_TYPE	  uint8_t
+#define PAGE_STATE_LEN	  PTR_TABLE_LEN
 
-#define BLOCK_SIZE (1024*32) // 32k of space per memory block
-#define BLOCK_COUNT ( 0xFFFFFFFF / BLOCK_SIZE )
-#define BLOCK_NODE_COUNT ( BLOCK_SIZE / NODE_SIZE )
+/* Block state */
 
-#define NODE_ARRAY_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(uint32_t)+(sizeof(RED_PTR)*4))))
-#define NODE_FILE_LIMIT (NODE_SIZE-((sizeof(uint8_t)*2)+(sizeof(char)*STRING_LIMIT)+(sizeof(bool))+(sizeof(RED_PTR)*3)+sizeof(uint32_t))-8)
+#define FREE_BLOCK			0x00
+#define ACTIVE_BLOCK		0x0A
+#define FULL_BLOCK			0x1A
+#define RESERVED_BLOCK		0xAE
 
-
-#define PAGE_STATE_TYPE uint8_t
-#define PAGE_STATE_LEN PTR_TABLE_LEN
-
-// Block state
-//
-#define FREE_BLOCK		0x00
-#define ACTIVE_BLOCK	0x0A
-#define FULL_BLOCK		0x1A
-#define RESERVED_BLOCK  0xAE
-
-// One segment is a part of the memory block, 
-// each memory block is composed of BLOCK_NODE_COUNT fragment
-//
 #define FREE_SEGMENT		0x00
 #define SEGMENT_ALLOCATED	0xFF
 
-#define PAGE_IS_FILE	0x01
-#define PAGE_IS_FOLDER	0x02
-#define PAGE_IS_CHAIN	0x30
+#define PAGE_IS_FILE		0x01
+#define PAGE_IS_FOLDER		0x02
+#define PAGE_IS_CHAIN		0x30
+
+/* convention used to identify a node who it's a coninuation of another one*/
 
 #define CHAINED_NAME "___c"
 
+/* node  default permission */
+
 #define PAGE_DEF_PERMISSION 0x00
 
+
+/* Main redFs nodes to handle folder and file creation  */
+
 typedef struct Red_Node{
-	uint8_t type;
-	RED_PTR f_node;
-	char name[STRING_LIMIT];
-	uint8_t permissions;
-	bool chained;
+	uint8_t  type;
+	RED_PTR  f_node;
+	char	 name[STRING_LIMIT];
+	uint8_t  permissions;
+	bool	 chained;
 	uint32_t content_count;
 	RED_PTR	 prev_page;
 	RED_PTR  next_page;
@@ -150,57 +142,43 @@ typedef struct Red_Node{
 }Red_Node;
 
 typedef struct Red_File{
-	uint8_t type;
-	RED_PTR f_node;
-	char name[STRING_LIMIT];
-	uint8_t permissions;
-	bool chained;
+	uint8_t  type;
+	RED_PTR  f_node;
+	char	 name[STRING_LIMIT];
+	uint8_t  permissions;
+	bool	 chained;
 	uint32_t file_size;
 	RED_PTR	 prev_page;
 	RED_PTR  next_page;
-	uint8_t content[NODE_FILE_LIMIT];
+	uint8_t  content[NODE_FILE_LIMIT];
 }Red_File;
 
-
 /* 
- * Simple fstab based on a memory block segmentation.
- * To reduce fstab size, each node is 512 bytes wide and the 
- * fstab store a list of memory blocks each 32Kbyte wide. During the 
- * allocation the first available block is selected only if it can 
- * handle an allocation, it means that if a block still have free 
- * space it will be selected as the target for the node allocation,
- * and to determine this each Red_MBlock have a "node_state" array, 
- * the width is the size of the memory block divided by the 
- * size of each node ( 512byte ). It store not only the node state, 
- * but it's also used to offset the base pointer of the memory 
- * block to a free space to enable the allocation. 
+ *	Fstab based on a memory block segmentation.
+ *	To reduce fstab size, each node is 512 bytes wide and the 
+ *	fstab store a list of memory blocks, each 32Kbyte wide. 
+ *	During the  allocation the first available block is selected 
+ *	only if it can handle (any) allocation.
  *
- * This improve the size of the fstab since it will store 
- * fewer pointer and state for each page and with a smaller node 
- * the fragmentation of the drive due to the normal usage will be 
- * reduced drastically compared to the previous version, which to 
- * reduce fstab size down to 2Mb each node was 8Kb wide.
- *
- * */
+ */
 
 typedef struct{
-	RED_PTR base_ptr;
-	uint8_t node_count; 
-	uint32_t fragment_map; // bitmap to keep track of allocated node inside the memory map 
+	RED_PTR  base_ptr;
+	uint8_t  node_count; 
+	uint32_t fragment_map; /* 32bit bitmap to map the memory block offset */
 }Red_MBlock;
 
-typedef struct{
-	uint32_t redfs_id[3];
-	char partition_name[STRING_LIMIT];
-	uint8_t version;
-	
-	Red_MBlock raw_block_ptr[BLOCK_COUNT];
-	uint8_t	block_state[BLOCK_COUNT];
 
-	uint32_t free_blocks;
-	uint32_t block_limit;
-	uint32_t partition_id;
-	RED_PTR entry_point;
+typedef struct{
+	uint32_t   redfs_id[3];
+	char	   partition_name[STRING_LIMIT];
+	uint8_t    version;
+	Red_MBlock raw_block_ptr[BLOCK_COUNT]; /* memory block list */
+	uint8_t	   block_state[BLOCK_COUNT];
+	uint32_t   free_blocks;
+	uint32_t   block_limit;
+	uint32_t   partition_id;
+	RED_PTR    entry_point;
 }Red_Fstab;
 
 
@@ -209,39 +187,174 @@ typedef struct{
  *	major information about one partition selected by 
  *	the system ready to be used by one or more process.
  *
- * */
+ */
 
 typedef struct{
-	uint32_t used_space;
-	uint32_t reserved_space;
-	RED_PTR partition_address;
-
-	RED_PTR root;
-	RED_PTR current_node;
-
+	uint32_t  used_space;
+	uint32_t  reserved_space;
+	RED_PTR   partition_address;
+	RED_PTR   root;
+	RED_PTR   current_node;
 	Red_Fstab fstab;
-	uint32_t cache_timing;
-	uint32_t cache_limit;
+	uint32_t  cache_timing;
+	uint32_t  cache_limit;
 }Red_Header;
 
 
+/* ======================================================================================================== */
+
+/*  RedFS Main API functions */
 
 /*
- * Internal filesystem functions, used by each main public function 
- * of redFs. Usable to get more control over your disk. 
+ *	Header associated with the I/O library of redFs. You MUST customize the implementation of 
+ *	the standard functions of redFs used by the library to integrate it with your system.
  *
- * Use it with caution.
- *
- * */
+ */
 
 #include "redFs_io.h"
+
+/*
+ *	Header of the standard node implementation. This include functions used by the folder implementation 
+ *	and the file implementation.
+ *	
+ */
+
 #include "redFs_node.h"
+
+/*
+ *	File and Folder implementation based on the generalized node structure.
+ *
+ */
+
 #include "redFs_folder.h"
 #include "redFs_file.h"
 
+/*
+ *	This function is designed to create a new partition table inside the drive with 
+ *	a base offset of BOOT_SECTOR_SIZE byte. A Red_ptable structure will be allocated 
+ *	and used to store the pointer to the partition, the associated id and the partition 
+ *	size. 
+ *	Calling this function is necessary ONLY if the selected disk is virgin, without any 
+ *	interaction with any instance of redFs in the past. If this function is called with an 
+ *	already initialize disk then the partition table will be lost and the reference to 
+ *	each partition will be invalidated. 
+ *
+ *	The partition table store partition reference with a fixed offset, if too many partition 
+ *	are created and deleted there's a risk of fragmentation inside the drive. If a new partition 
+ *	cannot fit in a deallocated space between two already allocated partition then a new contiguous 
+ *	space will be allocated, leaving a free spot inside the partition table. 
+ *	
+ */
+
+int redFs_init_disk(uint32_t disk_size);
+
+/* 
+ *	A new partition will be created inside the partition table of the disk with a char* name associated and 
+ *	the size specified. This function create a new fstab and maps the pages of the partition, initialize a 
+ *	root node and synch the partition table with the unique id of the partition, the associated size and 
+ *	the pointer to the fstab of the partition.
+ *
+ */
+
+int redFs_create_partition(char* name, uint32_t size);
+
+/*
+ *	In order to delete a partition it's necessary to provide the partition id associated with the partition 
+ *	and the name of the partition. This is done to provide a minimum of protection layer ti avoid deleting 
+ *	unwanted partition. 
+ *
+ *	Each partition cannot have a smaller size than the sizeof(Red_Fstab). The redFs library allow an allocation 
+ *	of a partition with equal or slightly bigger size, but of course you wouldn't be able to create any folder 
+ *	or file. 
+ *
+ */
+
+int redFs_delete_partition(char*name,uint32_t partition_id);
+
+/*
+ *	This function print the partition table associated with a specific partition. 
+ *
+ */
+
+void redFs_print_fstab(uint32_t partition_id);
+
+/*
+ *	This function print the partition table struct located in the base of the disk. If the disk is not 
+ *	initialized then this will print garbage. 
+ *
+ */
+
+void redFs_print_ptable();
+
+/* 
+ *	Each redFs function that operate with the disk directly may return different errors depending on what's 
+ *	happened during the operation. This function take the error code and prints out a stringified format 
+ *	to show the error. 
+ *
+ */
+
+void redFs_strerror(int return_state);
+
+/*	
+ *	The simple design of redFs allow instance of a partition to be obtained in order to operate with anything 
+ *	related to node manipulation. This was a design choice dictated to simplify the integration with simple 
+ *	operative sistem or runtime environment. The system can get an instance of one partition header to operate 
+ *	on one partition while maintaining the access to other partitions header that different processes may have 
+ *	requested to redFs. 
+ *
+ *	NOTE: The synch between two instances of the same partition cannot be handled directly by redFs due to the 
+ *	high complexity of different scenarios, thus the system on top redFs must be capable of handling disk access 
+ *	and data coherence to avoid fragmentation or partial data loss. 
+ *
+ */
+
+void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh);
+
+/*
+ *	This function can print those stats and show them to the standard output. 
+ *
+ */
+
+void redFs_print_partition_header(Red_Header* rh);
+
+/*
+ *	Each disk access and node manipulation increase a counter that keep tracks of the total operation for 
+ *	time instance. Those operation change inevitably the fstab associated with a partition, wheter it's a 
+ *	folder creation or a file deletion. It's not possible and convinient to continuousy access the disk to 
+ *	synch back those little updates for speed reason and disk general healt. 
+ *	RedFs manage that by having a function that synch back the latest fstab state on one header, this is 
+ *	also done automatically if the if the number disk write access is greater than the default threshold 
+ *	which is defined by CACHE_TIME_LIMIT. 
+ *	Each header has his own counter that will be reset each time the write access surpass this limit. 
+ *
+ *	IMPORTANT: If a partition is closed you must call this function manually to synch the latest changes 
+ *	inside the fstab that may have not be catched by the automatic synch system.
+ *
+ */
+
+int redFs_sync_partition(Red_Header* header);
+
+/*
+ *	This function print a fragmentation report for a generic Red_Fstab that may be associated with a partition 
+ *	or be created separately. Each page has his own fragment map that's used to both allocate and provide an 
+ *	offset for a new node, which simplify keeping track of the fragmentation allowing also a pretty graphics 
+ *	representation on what's going on inside your partition. 
+ *
+ *	This take account also the disk memory mapped to store the partition's fstab itself. 
+ *
+ */
+
+void redFs_print_fragmentation_report(Red_Fstab* fstab);
+
+/* ======================================================================================================== */
+
+/*
+ *	Internal filesystem functions used by redFs.  
+ *	Use it with caution.
+ */
+
 int redFs_format_partition_table(uint32_t max_disk_size);
 int redFs_write_boot_sector(uint8_t*content, uint32_t len);
-
 int redFs_update_partition_table(uint32_t p_fstab_adr,uint32_t size, uint32_t partition_id, uint8_t partition_number);
 int redFs_update_last_on_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t partition_id);
 int redFs_push_on_partition_table(uint32_t p_fstab_adr, uint32_t size, uint32_t partition_id);
@@ -251,46 +364,18 @@ int redFs_rewrite_partition_table(Red_ptable new_ptable);
 int redFs_sort_sync_partition_table();
 RED_PTR redFs_caclulate_new_partition_offset(uint32_t size);
 uint32_t redFs_generate_partition_id();
-
 int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t starting_point, Red_Fstab* fstab);
 Red_Fstab* redFs_get_fstab(uint8_t partition_number);
 int redFs_update_fstab(Red_Fstab fstab, uint8_t partition_number);
-void redFs_print_fragmentation_report(Red_Fstab* fstab);
 int redFs_get_free_fragment_offset(uint32_t fragment_map);
 int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32_t starting_address, Red_Fstab* fstab);
 void redFs_debug_print_fstab(Red_Fstab* fstab);
 int redFs_cache_update(Red_Header *header);
 
-/*
- *
- * redFs standard API functions 
- *
- * */
-
-int redFs_init_disk(uint32_t disk_size);
-int redFs_create_partition(char* name, uint32_t size);
-int redFs_delete_partition(char*name,uint32_t partition_id);
-void redFs_print_fstab(uint32_t partition_id);
-void redFs_print_ptable();
-void redFs_strerror(int return_state);
-void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh);
-void redFs_print_partition_header(Red_Header* rh);
-
-/*
- * 
- * Before closing the partition the system must synch changing inside the fstab used to 
- * operate with the filesystem, if this is not done all modification about folders, files 
- * and so on will be reverted to the last auto synch. Before changing header it's a good 
- * practice to always synch the header to the drive to avoid data fragmentation problem.
- *
- * */
-
-int redFs_sync_partition(Red_Header* header);
 
 #ifndef REDFS_IMP
 #define REDFS_IMP
 
 
 #endif // REDFS_IMP
-
 #endif // REDFS_H

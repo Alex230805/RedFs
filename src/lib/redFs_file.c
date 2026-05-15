@@ -37,7 +37,6 @@ RED_PTR redFs_get_file_from_current_folder(Red_Header* header, char*name){
 			Red_Node n = {0};
 			ret = redFs_node_read(node.content[i], &n);
 			if(ret) return ret;
-			//printf("Comparing %s with %s\n", name, n.name);
 			if(strcmp(name, n.name) == 0 && n.type == PAGE_IS_FILE){
 				adr = node.content[i];
 				end = true;

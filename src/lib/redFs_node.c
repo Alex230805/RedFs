@@ -219,7 +219,6 @@ int __redFs_node_recursive_remove(Red_Header* header, RED_PTR father_node){
 	if(node.type != PAGE_IS_FOLDER){
 		return -1;
 	}else{
-		// if(node.type == PAGE_IS_FOLDER){
 		for(uint32_t i=0; i < node.content_count; i++){
 			RED_PTR c = node.content[i];
 			int status = __redFs_node_recursive_remove(header, c);
@@ -236,7 +235,6 @@ int __redFs_node_recursive_remove(Red_Header* header, RED_PTR father_node){
 		ret = redFs_node_dealloc(header, father_node);
 		ret = redFs_cache_update(header);
 		if(ret) return ret;
-		// }
 	}
 	return 0;
 }
