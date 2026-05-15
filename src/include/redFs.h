@@ -6,32 +6,44 @@
 #include <stdbool.h>
 #include <string.h>
 
+/* ======================================================================================================== */
 /*
- * RedFS: a simple file system for low power architectures.
  *
- * This is a filesystem built with the intention to be used on small devices like microcomputer 
- * or microcontroller, generally speaking in a limited computational environment. To do so the 
- * redFs embed different functions for not only managing the disk but also for managing partition 
- * tables, boot sector and so on. Due to the fact that it's desinged for small system the structure 
- * for the disk partitioning and how it's built could be different from the modern way of doing things, 
- * it's designed to be as simple as possible without wasting resources.
+ *		 /$$$$$$$                  /$$ /$$$$$$$$ /$$$$$$ 
+ *		| $$__  $$                | $$| $$_____//$$__  $$
+ *		| $$  \ $$  /$$$$$$   /$$$$$$$| $$     | $$  \__/
+ *		| $$$$$$$/ /$$__  $$ /$$__  $$| $$$$$  |  $$$$$$ 
+ *		| $$__  $$| $$$$$$$$| $$  | $$| $$__/   \____  $$
+ *		| $$  \ $$| $$_____/| $$  | $$| $$      /$$  \ $$
+ *		| $$  | $$|  $$$$$$$|  $$$$$$$| $$     |  $$$$$$/
+ *		|__/  |__/ \_______/ \_______/|__/      \______/ 
+ *                                                 
+ *	a simple file system implementation for low power and simple systems
  *
- * The boot sector is 512 byte wide.
+ *	This is a filesystem built with the intention to be used on small devices like microcomputer 
+ *	or microcontroller, generally speaking in a limited computational environment. To do so the 
+ *	redFs embed different functions for not only managing the disk but also for managing partition 
+ *	tables, boot sector and so on. Due to the fact that it's desinged for small system the structure 
+ *	for the disk partitioning and how it's built could be different from the modern way of doing things, 
+ *	it's designed to be as simple as possible without wasting resources.
  *
- * The partition table is defined by the Red_ptable.
+ *	The boot sector is 512 byte wide.
+ *
+ *	The partition table is defined by the Red_ptable.
  *	
- * Max addressable space ( 32bit pointer limit ): 4gb
+ *	Max addressable space ( 32bit pointer limit ): 4gb
  *
- * Each partition is flagged with the redFs id ( which is composed by the prefix+id+suffix), during 
- * the partition finding task this is used as the main verification code for the partition integrity. 
+ *	Each partition is flagged with the redFs id ( which is composed by the prefix+id+suffix), during 
+ *	the partition's finding task this is used as the main verification code for the partition integrity. 
  *	
- * To be able to work with partitions easily redFs provide a function to manage the main partition table.
- * It's essential to have a pointer table to each partition on the disk to avoid a manual search as 
- * much as possible, and for that reason redFs embedd a partitioning system which create a small table 
- * with an offset larger than the boot sector size ( which is 512 bytes by default in redFs ) and from 
- * there a special struct is placed to address each fstab entry point.
+ *	To be able to work with partitions easily redFs provide a function to manage the main partition table.
+ *	It's essential to have a pointer table to each partition on the disk to avoid a manual search as 
+ *	much as possible, and for that reason redFs embedd a partitioning system which create a small table 
+ *	with an offset larger than the boot sector size ( which is 512 bytes by default in redFs ) and from 
+ *	there a special struct is placed to address each fstab entry point.
  *
- * */
+ */
+/* ======================================================================================================== */
 
 #define REDFS_ID_PREFIX			94694209
 #define REDFS_ID				'R'<<24 | 'D'<<16 | 'F'<<8 | 'S'
