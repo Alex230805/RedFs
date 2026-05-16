@@ -66,6 +66,7 @@ typedef enum{
 	PARTITION_TABLE_WRITE_ERROR,
 	PARTITION_TABLE_READ_ERROR,
 	PARTITION_NOT_FOUND_ERROR,
+	PARTITION_TABLE_EMPTY,
 	NOT_ENOUGH_DISK_SPACE_ERROR,
 	FSTAB_READ_ERROR,
 	FSTAB_WRITE_ERROR,
@@ -88,21 +89,9 @@ typedef enum{
 	FILE_POINTER_ERROR,
 	FILE_TOO_SMALL_ERROR,
 	FILE_DEALLOCATION_ERROR,
-	FILE_ALREADY_EXIST
+	FILE_ALREADY_EXIST,
+	GENERAL_INVALID_POINTER
 }Red_State;
-
-
-/* RedFs partition table */
-
-typedef struct{
-	uint32_t max_disk_size;
-	uint8_t  partition_count;
-	RED_PTR	 partition_list[PARTITION_LIMIT]; /* list pointer for each partition */
-	uint32_t partition_size[PARTITION_LIMIT]; /* partition size specified in bytes */
-	uint32_t partition_id[PARTITION_LIMIT];
-}Red_ptable;
-
-
 
 #define STRING_LIMIT	  16							/* String len limit, it's used for the node/folder/file naming */
 #define PTR_TABLE_TYPE	  uint32_t	
@@ -138,6 +127,16 @@ typedef struct{
 
 #define PAGE_DEF_PERMISSION 0x00
 
+/* RedFs partition table */
+
+typedef struct{
+	uint32_t max_disk_size;
+	uint8_t  partition_count;
+	RED_PTR	 partition_list[PARTITION_LIMIT]; /* list pointer for each partition */
+	uint32_t partition_size[PARTITION_LIMIT]; /* partition size specified in bytes */
+	uint32_t partition_id[PARTITION_LIMIT];
+	char	 partition_name[PARTITION_LIMIT][STRING_LIMIT];
+}Red_ptable;
 
 /* Main redFs nodes to handle folder and file creation  */
 
@@ -323,6 +322,34 @@ void redFs_strerror(int return_state);
 void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh);
 
 /*
+ *	Navigate the partition table and check for a specified filesystem. If the filesystem is present it return true, 
+ *	if not then it will return false. 
+ *	By providing a null pointer as an argument it will return true if any partition is defined, and it will return 
+ *	false if the disk is initialized but with no partition allocated.
+ *
+ */
+
+bool redFs_partition_defined(char* partition_name);
+
+/*
+ *	Search inside the partition table for the specified partition. If a match is found then the dedicated id of
+ *	the partition is returned, else a 0 will be returned.
+ *
+ */
+
+uint32_t redFs_get_partition_id_from_name(char* partition_name);
+
+/*
+ *	Similar to redFs_get_partition_id_from_name, if a match is found inside the partition table, then the 
+ *	name is copied inside the destination buffer provided as an argument ( note that the maximum size for 
+ *	a partition name is STRING_LIMIT, ensure to have a char* dest buffer with at least this size), if nothing 
+ *	is found then the dest buffer a string termination will be set as the first character. 
+ *
+ */
+
+int redFs_get_partition_name_from_id(char* dest, uint32_t partition_id);
+
+/*
  *	This function can print those stats and show them to the standard output. 
  *
  */
@@ -368,8 +395,8 @@ void redFs_print_fragmentation_report(Red_Fstab* fstab);
 int redFs_format_partition_table(uint32_t max_disk_size);
 int redFs_write_boot_sector(uint8_t*content, uint32_t len);
 int redFs_update_partition_table(uint32_t p_fstab_adr,uint32_t size, uint32_t partition_id, uint8_t partition_number);
-int redFs_update_last_on_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t partition_id);
-int redFs_push_on_partition_table(uint32_t p_fstab_adr, uint32_t size, uint32_t partition_id);
+int redFs_update_last_on_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t partition_id, char* name);
+int redFs_push_on_partition_table(uint32_t p_fstab_adr, uint32_t size, uint32_t partition_id, char* name);
 int redFs_pop_off_partition_table();
 Red_ptable redFs_get_partition_table();
 int redFs_rewrite_partition_table(Red_ptable new_ptable);
