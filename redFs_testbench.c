@@ -171,6 +171,16 @@ int main(){
 	Red_Header branching_test = {0};
 	redFs_get_partition_header(1006, &branching_test);
 	redFs_create_directory(&branching_test, "/home", 0);
+	for(size_t i=0; i<20; i++){
+		char buffer[64];
+		char name[64];
+		strcpy(name, folder_list[i]);
+		strcat(name, "/f_");	
+		sprintf(buffer, "%d", i);
+		strcat(name, buffer);
+		redFs_create_directory(&branching_test, name, 0);
+	}
+
 	redFs_create_directory(&branching_test, "/home/am", 0);
 	redFs_create_directory(&branching_test, "/home/public", 0);
 
