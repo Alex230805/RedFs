@@ -18,7 +18,7 @@ test: lib_virt ./src/test/main.c ./src/test/format.c ./src/test/dir.c ./src/test
 	$(COMP) $(FLAGS) $(INC) $(LIB) ./src/test/file.c -o ./src/test/bin/file -lredfs
 	$(COMP) $(FLAGS) $(INC) $(LIB) ./src/test/dir.c -o ./src/test/bin/dir -lredfs
 	$(COMP) $(FLAGS) $(INC) $(LIB) ./src/test/format.c -o ./src/test/bin/format -lredfs
-	$(COMP) $(FLAGS) $(INC) $(LIB) ./src/test/main.c -o ./src/test/test
+	$(COMP) $(FLAGS) $(INC) $(LIB) ./src/test/main.c -o ./src/test/test -lredfs
 
 testbench: lib_virt redFs_testbench.c
 	$(COMP) $(FLAGS) $(INC) $(LIB) redFs_testbench.c -o testbench -lredfs
