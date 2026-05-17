@@ -168,8 +168,15 @@ int main(){
 	SEP();
 	printf("Generating one filesystem tree\n");
 
+	ret = redFs_create_partition("branching_test", 0x1FFFFF);
+	redFs_strerror(ret);
+	if(ret){
+		printf("aborting '%s' creation\n",partition_2_name);
+	}
 	Red_Header branching_test = {0};
-	redFs_get_partition_header(1006, &branching_test);
+	uint32_t id = redFs_get_partition_id_from_name("branching_test");
+	printf("Id of new partition: %u\n", id);
+	redFs_get_partition_header(id, &branching_test);
 
 	redFs_create_directory(&branching_test, "/home/am", 0);
 	redFs_create_directory(&branching_test, "/home/public", 0);
@@ -230,7 +237,7 @@ int main(){
 		redFs_strerror(ret);
 		return 0;
 	}
-	printf("File of the test file from the filesystem: %d\n", redFs_get_file_size(&branching_test, "./readme.txt"));
+	printf("Size of the test file from the filesystem: %d\n", redFs_get_file_size(&branching_test, "./readme.txt"));
 	printf("Reading %d bytes from the file\n", 512);
 	char reading_test[512];
 	ret = redFs_read_file(&branching_test, "./readme.txt", (uint8_t*)reading_test, 512);
@@ -281,7 +288,6 @@ int main(){
 	
 	ret = redFs_sync_partition(&branching_test);
 
-quit:
 	printf("Closing testbench\n");
 	redFs_close_static_virtual_memory();
 	return 0;

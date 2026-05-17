@@ -46,10 +46,10 @@
 /* ======================================================================================================== */
 
 #define REDFS_ID_PREFIX			94694209
-#define REDFS_ID				'R'<<24 | 'D'<<16 | 'F'<<8 | 'S'
+#define REDFS_ID				('R'<<24 | 'D'<<16 | 'F'<<8 | 'S')
 #define REDFS_SUFFIX			96499042
 
-#define REDFS_VERSION			1
+#define REDFS_VERSION			0x010000 /* redfs version  */
 #define PARTITION_LIMIT			256     /* number of partition that any redFs partition table can handle */
 #define BOOT_SECTOR_SIZE		512		/* bytes */
 #define PARTITION_BLANK_OFFSET	1024	/* byte offset that separate two partitions */
@@ -90,7 +90,11 @@ typedef enum{
 	FILE_TOO_SMALL_ERROR,
 	FILE_DEALLOCATION_ERROR,
 	FILE_ALREADY_EXIST,
-	GENERAL_INVALID_POINTER
+	GENERAL_INVALID_POINTER,
+	PARTITION_INVALID_ID,
+	PARTITION_POINTER_LOCATION_MISMATCH,
+	PARTITION_VERSION_INCOMPATIBLE,
+	PARTITION_MAGIC_ID_IS_INVALID
 }Red_State;
 
 #define STRING_LIMIT	  16							/* String len limit, it's used for the node/folder/file naming */
@@ -183,7 +187,7 @@ typedef struct{
 typedef struct{
 	uint32_t   redfs_id[3];
 	char	   partition_name[STRING_LIMIT];
-	uint8_t    version;
+	uint32_t    version;
 	Red_MBlock raw_block_ptr[BLOCK_COUNT]; /* memory block list */
 	uint8_t	   block_state[BLOCK_COUNT];
 	uint32_t   free_blocks;
@@ -322,6 +326,17 @@ void redFs_strerror(int return_state);
 void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh);
 
 /*
+ *	Reading the partition header may fail if there is a problem with the disk interaction, and to prevent 
+ *	operating on a failed partition it's possible to use this sanity check function to evaluate the header 
+ *	content. 
+ *	This function return 0 if the partition is sane, or it will return an error code compatible with redFs_strerror()
+ *	indicating the failure point.
+ *
+ */
+
+int redFs_partition_header_sanity_check(Red_Header* rh);
+
+/*
  *	Navigate the partition table and check for a specified filesystem. If the filesystem is present it return true, 
  *	if not then it will return false. 
  *	By providing a null pointer as an argument it will return true if any partition is defined, and it will return 
@@ -394,7 +409,7 @@ void redFs_print_fragmentation_report(Red_Fstab* fstab);
 
 int redFs_format_partition_table(uint32_t max_disk_size);
 int redFs_write_boot_sector(uint8_t*content, uint32_t len);
-int redFs_update_partition_table(uint32_t p_fstab_adr,uint32_t size, uint32_t partition_id, uint8_t partition_number);
+int redFs_update_partition_table(uint32_t p_fstab_adr,uint32_t size, uint32_t partition_id, uint8_t partition_number, char* name);
 int redFs_update_last_on_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t partition_id, char* name);
 int redFs_push_on_partition_table(uint32_t p_fstab_adr, uint32_t size, uint32_t partition_id, char* name);
 int redFs_pop_off_partition_table();

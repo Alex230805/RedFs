@@ -24,7 +24,7 @@ int redFs_write_boot_sector(uint8_t*content, uint32_t len){
 	return 0;
 }
 
-int redFs_update_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t partition_id, uint8_t partition_number){
+int redFs_update_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t partition_id, uint8_t partition_number, char* name){
 	Red_ptable ptable = redFs_get_partition_table();
 	if(partition_number > ptable.partition_count){
 		return (int)PARTITION_NOT_FOUND_ERROR;
@@ -32,6 +32,7 @@ int redFs_update_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t pa
 	ptable.partition_list[partition_number] = p_fstab_adr;
 	ptable.partition_size[partition_number] = size;
 	ptable.partition_id[partition_number] = partition_id;
+	strcpy(ptable.partition_name[partition_number], name);
 	if(redFs_rewrite_partition_table(ptable)){
 		return (int)PARTITION_TABLE_WRITE_ERROR;
 	}
@@ -69,6 +70,7 @@ int redFs_pop_off_partition_table(){
 	ptable.partition_list[ptable.partition_count-1] = 0;
 	ptable.partition_size[ptable.partition_count-1] = 0;
 	ptable.partition_id[ptable.partition_count-1] = 0;
+	memset(ptable.partition_name[ptable.partition_count-1], 0, sizeof(char)*STRING_LIMIT);
 	ptable.partition_count-=1;
 	if(redFs_rewrite_partition_table(ptable)){
 		return (int)PARTITION_TABLE_WRITE_ERROR;
@@ -109,6 +111,7 @@ int redFs_sort_sync_partition_table(){
 	RED_PTR swap_ptr = 0;
 	uint32_t swap_size = 0;
 	uint32_t swap_id = 0;
+	char swap_name[STRING_LIMIT] = {0};
 
 	for(uint32_t j=0;j<ptable.partition_count;j++){
 		for(uint32_t i=0;i<ptable.partition_count-1;i++){
@@ -116,14 +119,17 @@ int redFs_sort_sync_partition_table(){
 				swap_ptr = ptable.partition_list[i+1];
 				swap_size = ptable.partition_size[i+1];
 				swap_id = ptable.partition_id[i+1];
+				strcpy(swap_name, ptable.partition_name[i+1]);
 
 				ptable.partition_list[i+1] = ptable.partition_list[i];
 				ptable.partition_id[i+1] =	 ptable.partition_id[i];
 				ptable.partition_size[i+1] = ptable.partition_size[i];
+				strcpy(ptable.partition_name[i+1], ptable.partition_name[i]);
 
 				ptable.partition_list[i] = swap_ptr; 
 				ptable.partition_id[i]   = swap_id;
 				ptable.partition_size[i] = swap_size;
+				strcpy(ptable.partition_name[i+1], swap_name);
 			}
 		}
 	}
@@ -137,7 +143,7 @@ RED_PTR redFs_caclulate_new_partition_offset(uint32_t size){
 	// note: this is based on a ordered partition table
 	Red_ptable ptable = redFs_get_partition_table();
 	if(ptable.partition_count < 1) return sizeof(Red_ptable)+BOOT_SECTOR_SIZE+PARTITION_BLANK_OFFSET;
-	
+
 	// search for usable space between the base and the first partition of the disk
 	if(ptable.partition_list[0] - sizeof(Red_ptable)+BOOT_SECTOR_SIZE+PARTITION_BLANK_OFFSET >= size){
 		return sizeof(Red_ptable)+BOOT_SECTOR_SIZE+PARTITION_BLANK_OFFSET;
@@ -539,6 +545,40 @@ void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh){
 	return;
 }
 
+int redFs_partition_header_sanity_check(Red_Header* rh){
+	Red_ptable ptable = redFs_get_partition_table();
+	if(ptable.partition_count < 1) return PARTITION_TABLE_EMPTY;
+	bool status = false;
+	RED_PTR address = 0;
+	uint32_t pid = 0;
+	for(uint8_t i=0;i<ptable.partition_count && !status;i++){
+		if(strcmp(rh->fstab.partition_name, ptable.partition_name[i])){
+			status = true;
+			address = ptable.partition_list[i];
+			pid = ptable.partition_id[i];
+		}
+	}
+	if(!status) return PARTITION_NOT_FOUND_ERROR;
+	if(pid != rh->fstab.partition_id){
+		return PARTITION_INVALID_ID;
+	}
+	if(rh->fstab.raw_block_ptr[0].base_ptr != address){
+		return PARTITION_POINTER_LOCATION_MISMATCH;
+	}
+	if(((rh->fstab.version>>16) & 0xFF) != ((REDFS_VERSION>>16) & 0xFF)){
+		/* check for major version mismatch*/
+		return PARTITION_VERSION_INCOMPATIBLE;
+	}
+	if(\
+		rh->fstab.redfs_id[0] != REDFS_ID_PREFIX || \
+		rh->fstab.redfs_id[1] != REDFS_ID		 || \
+		rh->fstab.redfs_id[2] != REDFS_SUFFIX		\
+	){
+		return PARTITION_MAGIC_ID_IS_INVALID;
+	}
+	return 0;
+}
+
 void redFs_print_partition_header(Red_Header* rh){
 	printf("Used space: %d bytes / %.2f Mb\n", rh->used_space, (double)rh->used_space/1000000);
 	printf("Reserved space: %d bytes / %.2f Mb\n", rh->reserved_space, (double)rh->reserved_space/1000000);
@@ -588,100 +628,112 @@ void redFs_strerror(int return_state){
 	switch(return_state){
 		case NOERROR:
 			fprintf(stderr,"No error reported during operation\n");
-			break;
+			return;
 		case PARTITION_TABLE_FORMAT_ERROR: 
 			fprintf(stderr,"Error: Unable to format the partition table\n");
-			break;
+			return;
 		case BOOT_SECTOR_WRITING_ERROR: 
 			fprintf(stderr,"Error: Unable to write the boot sector\n");
-			break;
+			return;
 		case PARTITION_TABLE_WRITE_ERROR: 
 			fprintf(stderr,"Error: Partition table writing error, cannot update partition table\n");
-			break;
+			return;
 		case PARTITION_TABLE_READ_ERROR: 
 			fprintf(stderr,"Error: Partition table writing error, cannot get partition table\n");
-			break;
+			return;
 		case PARTITION_NOT_FOUND_ERROR: 
 			fprintf(stderr,"Error: Unable to find the specified partition\n");
-			break;
+			return;
 		case NOT_ENOUGH_DISK_SPACE_ERROR: 
 			fprintf(stderr,"Error: Not enough disk space available\n");
-			break;
+			return;
 		case FSTAB_READ_ERROR: 
 			fprintf(stderr,"Error: Unable to read fstab\n");
-			break;
+			return;
 		case FSTAB_WRITE_ERROR: 
 			fprintf(stderr,"Error: Unable to write fstab\n");
-			break;
+			return;
 		case FSTAB_PAGE_WRITE_ERROR: 
 			fprintf(stderr,"Error: Cannot write partition page due to a write error\n");
-			break;
+			return;
 		case PARTITION_FORMAT_DISK_ERROR: 
 			fprintf(stderr,"Error: Unable to format partition due to a disk error\n");
-			break;
+			return;
 		case PARTITION_SIZE_NOT_SUFFICIENT:
 			fprintf(stderr,"Error: The specified partition size is not sufficient to store even the fstab\n");
-			break;
+			return;
 		case PARTITION_ACTION_UNKNOWN: 
 			fprintf(stderr,"Partition action error: the required action could not be performed since it doesn't exist or it's still under development\n");
-			break;
+			return;
 		case PARTITION_NODE_WRITING_ERROR:
 			fprintf(stderr,"Error: unable to allocate new node for this partition\n");
-			break;
+			return;
 		case PARTITION_NODE_READING_ERROR:
 			fprintf(stderr,"Error: unable to read node or node content from this partition\n");
-			break;
+			return;
 		case REDFS_UNSUPPORTED_FUNCTION:
 			fprintf(stderr,"Error: function not supported\n");
-			break;
+			return;
 		case REDFS_BLOCK_FRAGMENT_ERROR:
 			fprintf(stderr,"Error while trying to read the block fragment map\n");
-			break;
+			return;
 		case NODE_ALLOCATION_ERROR: 
 			fprintf(stderr,"Could not allocate node due to a disk error\n");
-			break;
+			return;
 		case NODE_DEALLOCATION_ERROR:
 			fprintf(stderr, "Could not deallocate node due to a disk error\n");
-			break;
+			return;
 		case NODE_NOT_FOUND:
 			fprintf(stderr,"Could not locate the specified node\n");
-			break;
+			return;
 		case NODE_IS_NOT_A_FOLDER_ERROR:
 			fprintf(stderr, "The specified node is not a folder, cannot search for folders inside this node\n");
-			break;
+			return;
 		case NODE_RECURSIVE_DEALLOCATION_ERROR:
 			fprintf(stderr, "Recursive deallocation failed\n");
-			break;
+			return;
 		case FOLDER_NOT_FOUND_ERROR:
 			fprintf(stderr, "Error: no such folder\n");
-			break;
+			return;
 		case FILE_ALLOCATION_ERROR:
 			fprintf(stderr, "Unable to create file in the current directory due to a partition error\n");
-			break;
+			return;
 		case FILE_NOT_FOUND_ERROR:
 			fprintf(stderr, "File not found\n");
-			break;
+			return;
 		case FILE_POINTER_ERROR:
 			fprintf(stderr, "File pointer error: unable to read the complete file from the filesystem\n");
-			break;
+			return;
 		case FILE_TOO_SMALL_ERROR:
 			fprintf(stderr, "Cannot read the specified size: file is smaller\n");
-			break;
+			return;
 		case FILE_DEALLOCATION_ERROR:
 			fprintf(stderr, "Cannot remove/deallocate file\n");
-			break;
+			return;
 		case FILE_ALREADY_EXIST:
 			fprintf(stderr, "File already exist\n");
-			break;
+			return;
 		case PARTITION_TABLE_EMPTY:
 			fprintf(stderr, "The partition table is empty for the selected disk\n");
-			break;
+			return;
 		case GENERAL_INVALID_POINTER:
 			fprintf(stderr, "Invalid pointer provided\n");
-			break;
+			return;
+		case PARTITION_INVALID_ID:
+			fprintf(stderr, "Sanity check failed, partition id did not match the reference id inside the partition table\n");
+			return;
+		case PARTITION_POINTER_LOCATION_MISMATCH:
+			fprintf(stderr, "Sanity check failed, pointer to where the partition begin is different from what's on the partition table\n");
+			return;
+		case PARTITION_VERSION_INCOMPATIBLE: 
+			fprintf(stderr, "Cannot operate inside the current partition, found an incompatible redFs major version used to create this partition\n");
+			return;
+		case PARTITION_MAGIC_ID_IS_INVALID:
+			fprintf(stderr, "Sanity check failed on magic number check, the redFs identifier for the cloned memory block is different from the identifier in the current fstab. This indicate a wrong pointer offset or a possible memory corruption, in any case DO NOT operate on this partition.\n");
+			return;
 		default: 
 			fprintf(stderr,"Error: Unknown error\n");
-			break;
+			return;
 	}
 }
 
