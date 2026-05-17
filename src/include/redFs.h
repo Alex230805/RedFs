@@ -287,6 +287,27 @@ int redFs_create_partition(char* name, uint32_t size);
 int redFs_delete_partition(char*name,uint32_t partition_id);
 
 /*
+ *	redFs_erase_partition() is a user function that serve as a wrapper for the internal redFs_format_partition
+ *	function. It will reset the fstab from the disk, initializing it back to the original state. 
+ *	The formatting process does not erase all data from the partition, but it reset the fstab; if you have a 
+ *	"saving" of the latest fstab before the formatting process, it's possible to still access the file throughout the 
+ *	partition with the functions that take the Red_Header argument untill you deallocate the cached Red_Header from ram. 
+ *	It's suggested to trigger a delete signal for every instance of a single partition to then proceed with the formatting 
+ *	process of the partition, this to avoid different processes to access the disk with an old instance of Red_Header while 
+ *	the partition is formatted, invalidating further updates after a reboot or a new fetch of Red_Header directly from the disk.
+ *
+ *	IMPORTANT: if you call functions that use Red_Header and you perform different write action till triggering the auto caching 
+ *	system, the cached Red_Header provided as argument will overwrite the cleaned fstab of the partition, invalidating the 
+ *	previous format.
+ *
+ *	IMPORTANT: the previous assigned partition id will be invalidated after a format process. It's suggested to first 
+ *	erase the partition, then acquiring the latest id with the dedicated function, then fetching the latest header with the 
+ *	obtained id. 
+ */
+
+int redFs_erase_partition(uint32_t partition_id);
+
+/*
  *	This function print the partition table associated with a specific partition. 
  *
  */
@@ -404,7 +425,8 @@ void redFs_print_fragmentation_report(Red_Fstab* fstab);
 
 /*
  *	Internal filesystem functions used by redFs.  
- *	Use it with caution.
+ *	Use it with caution. It's suggested to read the source code for each one of them before proceeding 
+ *	using it.
  */
 
 int redFs_format_partition_table(uint32_t max_disk_size);
@@ -416,7 +438,7 @@ int redFs_pop_off_partition_table();
 Red_ptable redFs_get_partition_table();
 int redFs_rewrite_partition_table(Red_ptable new_ptable);
 int redFs_sort_sync_partition_table();
-RED_PTR redFs_caclulate_new_partition_offset(uint32_t size);
+RED_PTR redFs_calculate_new_partition_offset(uint32_t size);
 uint32_t redFs_generate_partition_id();
 int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t starting_point, Red_Fstab* fstab);
 Red_Fstab* redFs_get_fstab(uint8_t partition_number);

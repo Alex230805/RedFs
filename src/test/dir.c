@@ -1,3 +1,4 @@
+#define VIRTIO
 #include "redFs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +23,7 @@ int main(int argc, char** argv){
 	NOTY("Initializing test ....\n");
 	int ret = 0;
 	char* partition_name = "dir_test";
-	ret = redFs_create_partition(partition_name, partition_0_size);
+	ret = redFs_create_partition(partition_name, size);
 	redFs_strerror(ret);
 	if(ret) return ret;
 	
@@ -36,7 +37,7 @@ int main(int argc, char** argv){
 		strcpy(name, "folder_");
 		sprintf(buffer, "%d", i);
 		strcat(name, buffer);
-		ret = redFs_create_directory(&f_header, name, 0);
+		ret = redFs_create_directory(&header, name, 0);
 		if(ret){
 			redFs_strerror(ret);
 			return ret;
@@ -47,7 +48,7 @@ int main(int argc, char** argv){
 		sprintf(buffer, "%d", (int)(rand()%340));
 		strcat(name, buffer);
 		printf("Deleting folder %s\n", name);
-		ret = redFs_remove_directory(&f_header,name);
+		ret = redFs_remove_directory(&header,name);
 	}
 
 	NOTY("Generating base filesystem tree\n");
@@ -57,7 +58,7 @@ int main(int argc, char** argv){
 	
 	for(int i=0;i<base_tree_size;i++){
 		strcat(name, "base_root_dir_");	
-		sprintf(buffer, "%d", j);
+		sprintf(buffer, "%d", i);
 		strcat(name, buffer);
 		folder_tree[i] = strdup(name);
 	}
@@ -88,7 +89,7 @@ int main(int argc, char** argv){
 			strcat(name, buffer);
 			ret = redFs_change_directory(&header, folder_tree[i]);
 			if(ret) return ret;
-			for(int k=0;k<mkdir_count; k++){
+			for(int k=0;k<mkdir_num; k++){
 				strcat(name, "f_");	
 				sprintf(buffer, "%d", k);
 				strcat(name, buffer);

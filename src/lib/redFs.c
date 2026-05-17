@@ -139,14 +139,16 @@ int redFs_sort_sync_partition_table(){
 }
 
 
-RED_PTR redFs_caclulate_new_partition_offset(uint32_t size){
+RED_PTR redFs_calculate_new_partition_offset(uint32_t size){
 	// note: this is based on a ordered partition table
+	
+	uint32_t base_offset = sizeof(Red_ptable)+BOOT_SECTOR_SIZE+PARTITION_BLANK_OFFSET;
 	Red_ptable ptable = redFs_get_partition_table();
-	if(ptable.partition_count < 1) return sizeof(Red_ptable)+BOOT_SECTOR_SIZE+PARTITION_BLANK_OFFSET;
-
+	if(ptable.partition_count < 1) return base_offset;
+	
 	// search for usable space between the base and the first partition of the disk
-	if(ptable.partition_list[0] - sizeof(Red_ptable)+BOOT_SECTOR_SIZE+PARTITION_BLANK_OFFSET >= size){
-		return sizeof(Red_ptable)+BOOT_SECTOR_SIZE+PARTITION_BLANK_OFFSET;
+	if(ptable.partition_list[0] - base_offset >= size){
+		return base_offset;
 	}
 
 	// search for usable space between existing partitions
@@ -262,7 +264,7 @@ int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32
 	 * a preallocated address inside the partition table is expected to be found at the time 
 	 * of calling this function, this is the role of "starting_point" address which is the 
 	 * new allocated partition. If that's not the case you must first calculate the offset for 
-	 * the partition with the help of the "redFs_caclulate_new_partition_offset()" function and 
+	 * the partition with the help of the "redFs_calculate_new_partition_offset()" function and 
 	 * manually update the partition table with "redFs_push_on_partition_table(uint32_t p_fstab_adr, uint32_t size)" 
 	 * or similar functions provided by the API. It's suggested to use the wrapper "redFs_create_partition()"
 	 * which handle all the necessary task, including this function call
@@ -336,7 +338,7 @@ int redFs_init_disk(uint32_t disk_size){
 int redFs_create_partition(char* name, uint32_t size){
 	if(size < sizeof(Red_Fstab)) return (int)PARTITION_SIZE_NOT_SUFFICIENT;
 	static Red_Fstab fstab = {0};
-	RED_PTR offset = redFs_caclulate_new_partition_offset(size);
+	RED_PTR offset = redFs_calculate_new_partition_offset(size);
 	if(offset == 0){
 		return NOT_ENOUGH_DISK_SPACE_ERROR;
 	}
@@ -367,11 +369,13 @@ int redFs_erase_partition(uint32_t partition_id){
 	RED_PTR adr = 0;
 	char* name = NULL;
 	uint32_t size = 0;
+	uint8_t pos = 0;
 	for(uint8_t i=0;i<ptable.partition_count && adr == 0; i++){
 		if(ptable.partition_id[i] == partition_id){
 			adr = ptable.partition_list[i];
 			name = ptable.partition_name[i];
 			size = ptable.partition_size[i];
+			pos = i;
 		}
 	}
 	if(adr == 0){
@@ -379,6 +383,9 @@ int redFs_erase_partition(uint32_t partition_id){
 	}
 	int ret = 0;
 	ret = redFs_format_partition(name, size, adr, &local);
+	if(ret) return ret;
+	ptable.partition_id[pos] = local.partition_id;
+	ret = redFs_rewrite_partition_table(ptable);
 	if(ret) return ret;
 	return 0;
 }
@@ -428,7 +435,6 @@ int redFs_delete_partition(char*name,uint32_t partition_id){
 bool redFs_partition_defined(char* partition_name){
 	Red_ptable ptable = redFs_get_partition_table();
 	if(ptable.max_disk_size == 0){
-		redFs_strerror(PARTITION_TABLE_READ_ERROR);
 		return false;
 	}
 	if(partition_name == NULL){
@@ -514,6 +520,7 @@ void redFs_print_fstab(uint32_t partition_id){
 void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh){
 	Red_ptable ptable = redFs_get_partition_table();
 	bool end = false;
+	memset(rh, 0, sizeof(Red_Header));
 	for(uint32_t i=0;i<ptable.partition_count && !end;i++){
 		if(ptable.partition_id[i] == partition_id){
 			for(uint32_t j=0;j<sizeof(Red_Fstab); j++){
@@ -552,7 +559,7 @@ int redFs_partition_header_sanity_check(Red_Header* rh){
 	RED_PTR address = 0;
 	uint32_t pid = 0;
 	for(uint8_t i=0;i<ptable.partition_count && !status;i++){
-		if(strcmp(rh->fstab.partition_name, ptable.partition_name[i])){
+		if(strcmp(rh->fstab.partition_name, ptable.partition_name[i]) == 0){
 			status = true;
 			address = ptable.partition_list[i];
 			pid = ptable.partition_id[i];
@@ -601,7 +608,7 @@ void redFs_print_ptable(){
 	printf("Number of partition: %d\n", ptable.partition_count);
 	printf("Pointer table: \n");
 	for(uint32_t i=0;i<ptable.partition_count;i++){
-		printf("-> block [%d]: partition id %d, located at  0x%x, of size %d / %.2f Mb\n",i, ptable.partition_id[i], ptable.partition_list[i], ptable.partition_size[i], (double)ptable.partition_size[i]/1000000);
+		printf("-> block [%d]: '%s', partition id %d, located at  0x%x, of size %d / %.2f Mb\n",i, ptable.partition_name[i] ,ptable.partition_id[i], ptable.partition_list[i], ptable.partition_size[i], (double)ptable.partition_size[i]/1000000);
 	}
 }
 
@@ -639,7 +646,7 @@ void redFs_strerror(int return_state){
 			fprintf(stderr,"Error: Partition table writing error, cannot update partition table\n");
 			return;
 		case PARTITION_TABLE_READ_ERROR: 
-			fprintf(stderr,"Error: Partition table writing error, cannot get partition table\n");
+			fprintf(stderr,"Error: Partition table reading error, cannot get partition table\n");
 			return;
 		case PARTITION_NOT_FOUND_ERROR: 
 			fprintf(stderr,"Error: Unable to find the specified partition\n");

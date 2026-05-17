@@ -5,7 +5,6 @@
 int main(){
 	printf("RedFs test program.\n");
 	
-	
-	printf("Done!\n")
+	printf("Done!\n");
 	return 0;
 }
