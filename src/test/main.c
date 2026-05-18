@@ -9,12 +9,17 @@
 #include <pthread.h>
 #include "redFs.h"
 
+#define INIT_P_RETURN 69420
+
+#define cmd_set(cmd, ...)\
+	cmd_set_imp(&cmd, (char* []){__VA_ARGS__, NULL});
+
 #define LOCAL_SIZE 1024*8
 static char local_mem[LOCAL_SIZE] =  {0};
 static size_t local_tracker =	0;
 static size_t local_size =		LOCAL_SIZE;
 
-char* path = NULL;
+static char path[512] = {0};
 
 typedef struct{
 	char** array;
@@ -24,8 +29,9 @@ typedef struct{
 
 typedef struct{
 	pid_t pid;
-	int*  ret_status; 
+	int  ret_status; 
 }Process;
+
 
 void* local_alloc(size_t size){
 	if(size+local_tracker >= local_size) local_tracker = 0;
@@ -52,9 +58,20 @@ void cmd_append(Cmd* cmd, char* string){
 	}
 }
 
+char *path_compose(char* path, char* string){
+	int size = strlen(path) + strlen(string);
+	char* out = (char*)local_alloc(sizeof(char)*size+1);
+	strcpy(out, path);
+	strcat(out, string);
+	return out;
+}
+
 pid_t spawn_process(Cmd* cmd){
 	printf("[CMD]: [");
 	for(size_t i=0;i<cmd->tracker; i++){
+		if(i==0){
+			printf("%s", path);
+		}
 		printf("%s, ", cmd->array[i]);
 	}
 	printf("NULL]\n");
@@ -65,47 +82,53 @@ pid_t spawn_process(Cmd* cmd){
 	if(pid > 0){
 		return pid;
 	}else{
-		if(execv(path, cmd->array) < 0){
+		if(execv(path_compose(path, cmd->array[0]), cmd->array) < 0){
 			fprintf(stderr, "Unable to spawn process: %s\n", strerror(errno));
-			exit(1);
+			abort();
 		}
 	}
 	return 0;
 }
 
 static void capture_return(Process* process){
-	int loc_ret = -69;
+	static int loc_ret = INIT_P_RETURN;
 	waitpid(process->pid, &loc_ret, 0);
-	*(process->ret_status) = WEXITSTATUS(loc_ret);
+	process->ret_status = WEXITSTATUS(loc_ret);
 }
 
-int* spawn_list_synch_wait(Cmd* cmd, int len){
-	pid_t* pid = (pid_t*)local_alloc(sizeof(pid_t)*len);
+Process* spawn_list_synch_wait(Cmd* cmd, int len){
 	pthread_t* monitor = (pthread_t*)local_alloc(sizeof(pthread_t)*len);
-	int *loc_ret = (int*)local_alloc(sizeof(int)*len);
+	Process* proc = (Process*)local_alloc(sizeof(Process)*len);
 	for(int i=0;i<len; i++){
-		pid_t proc = spawn_process(&cmd[i]);
-		if(proc > 0){
-			pid[i] = proc;
-			Process* process = (Process*)local_alloc(sizeof(Process));
-			process->pid = pid[i];
-			process->ret_status = &loc_ret[i];
-			if(pthread_create(&monitor[i], NULL, (void* _Nullable)&capture_return, process)){
+		pid_t p = spawn_process(&cmd[i]);
+		if(p > 0){
+			proc[i].pid = p;
+			proc[i].ret_status = INIT_P_RETURN;
+			if(pthread_create(&monitor[i], NULL, (void*)&capture_return, &proc[i])){
 				fprintf(stderr, "Unable to create thread: %s\n", strerror(errno));
 			}
 		}
 	}
 	bool end = false;
+	printf("Waiting for tests to finish\n");
 	while(!end){
 		end = true;
-		sleep(1);
 		for(int i=0;i<len; i++){
-			if(loc_ret[i] == -69){
+			sleep(1);
+			if(proc[i].ret_status == INIT_P_RETURN){
 				end = false;
 			}
 		}
 	}
-	return loc_ret;
+	return proc;
+}
+
+void cmd_set_imp(Cmd* cmd, char* list[]){
+	int i=0;
+	while(list[i] != NULL){
+		cmd_append(cmd, list[i]);
+		i+=1;	
+	}
 }
 
 int main(){
@@ -114,35 +137,25 @@ int main(){
 	fseek(stream, 0, SEEK_END);
 	int size = ftell(stream);
 	fseek(stream, 0, SEEK_SET);
-	path = (char*)malloc(sizeof(char)*size+5);
 	fread(path, sizeof(char), size, stream);
 	path[size] = '\0';
 	*(strchr(path, '\n')) = '\0';
-	strcat(path, "/bin");
+	strcat(path, "/bin/");
 	fclose(stream);
-	printf("TEST EXECUTION PATH: %s\n", path);
+
 	#define CMD_LEN 1
-	Cmd cmd[CMD_LEN] = {0};	
-	cmd_append(&cmd[0], "format");
-	cmd_append(&cmd[0], "FORMAT_DISK");
-	cmd_append(&cmd[0], "20896200");
-	cmd_append(&cmd[0], "4890200");
+	Cmd cmd[CMD_LEN] = {0};
+	cmd_set(cmd[0], "format", "TEST_FORMAT_IMAGE", "30896200", "2890200");
 
-	int *loc_ret = spawn_list_synch_wait(cmd, CMD_LEN);
 
-	printf("Testing completed: ");
-	int failed = 0;
+	Process *proc = spawn_list_synch_wait(cmd, CMD_LEN);
+
+	printf("Testing completed: \n");
 	for(int i=0;i<CMD_LEN;i++){
-		printf("%s -> %d\n", cmd[i].array[0], loc_ret[i]);
-		redFs_strerror(loc_ret[i]);
-		if(loc_ret[i] != 0) failed += 1;
+		printf("[CMD %d] -> %s returned %d\n",i ,cmd[i].array[0], proc[i].ret_status);
+		if(proc[i].ret_status){
+			redFs_strerror(proc[i].ret_status);
+		}
 	}
-	if(failed){
-		printf("%d test failed\n", failed);
-	}else{
-		printf("Testing completed with 0 error reported\n");
-	}
-	free(path);
-	path = NULL;
 	return 0;
 }

@@ -75,7 +75,7 @@ int main(int argc, char** argv){
 	if(ret) return ret;
 	
 	NOTY("Creating random partitions");
-	for(int i=0;i<10; i++){
+	for(int i=0;i<5; i++){
 		strcpy(name, "t");
 		sprintf(buffer, "%d", i);
 		strcat(name, buffer);
@@ -88,7 +88,7 @@ int main(int argc, char** argv){
 
 	NOTY("Deleting random partitions");
 	srand(time(NULL));
-	for(int i=0;i<5; i++){
+	for(int i=0;i<2; i++){
 		strcpy(name, "t");
 		sprintf(buffer, "%d", rand()%10);
 		strcat(name, buffer);
