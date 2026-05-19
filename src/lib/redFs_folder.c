@@ -172,7 +172,7 @@ char* redFs_get_current_dir_name(Red_Header* header){
 	return name;
 }
 
-int redFs_get_current_dir_content(Red_Header* header){
+int redFs_print_current_dir_content(Red_Header* header){
 	Red_Node node = {0};
 	int ret = redFs_get_current_directory(header, &node);
 	if(ret) return ret;
@@ -229,7 +229,7 @@ int redFs_change_path(Red_Header*header, char* path){
 	return 0;
 }
 
-int redFs_get_dir_content(Red_Header* header, char* path){
+int redFs_print_dir_content(Red_Header* header, char* path){
 	char** chopped_path = redFs_chop_path(path);
 	int ret = 0;
 	RED_PTR cache = header->current_node;

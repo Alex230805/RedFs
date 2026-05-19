@@ -223,6 +223,7 @@ typedef struct{
 /*
  *	Header associated with the I/O library of redFs. You MUST customize the implementation of 
  *	the standard functions of redFs used by the library to integrate it with your system.
+ *	For more information please check out "redFs_io.h" header file for more informations.
  *
  */
 
@@ -424,7 +425,7 @@ void redFs_print_fragmentation_report(Red_Fstab* fstab);
 
 /*
  *	Internal filesystem functions used by redFs.  
- *	Use it with caution. It's suggested to read the source code for each one of them before proceeding 
+ *	Use it with caution. It's suggested to read the source code for each one of them before proceed 
  *	using it.
  */
 
