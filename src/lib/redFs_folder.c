@@ -95,6 +95,10 @@ int redFs_change_directory(Red_Header* header, char* dir_name){ // '.' and '..' 
 		header->current_node = header->current_node;
 		return 0;
 	}
+	if(strcmp("/", dir_name) == 0){
+		header->current_node = header->root;
+		return 0;
+	}
 
 	while(!end){
 		for(uint32_t i=0;i<node.content_count && ptr == 0; i++){
