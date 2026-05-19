@@ -353,6 +353,18 @@ void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh);
  *	This function return 0 if the partition is sane, or it will return an error code compatible with redFs_strerror()
  *	indicating the failure point.
  *
+ *	NOTE: Sanity check may fail due to different reason, it's suggested to repeat the sanity process more that one time 
+ *	if it failed. 
+ *	
+ *	USAGE EXAMPLE:
+ *
+ *	To proceed with an accurate check you must fetch Red_Header* and repeat the sanity check process more 
+ *	than one time, if it fail after N times you should refetch Red_Header* associated with the partition and repeat the 
+ *	process another time to exclude any possible reading error from the disk. 
+ *	If it does fail again then it's possible that a disk error or a partition error was indeed present and the partition 
+ *	integrity cannot be ensured; if you still use the partition instead of aborting the process then data loss may occur 
+ *	which are not responsibility of redFs.
+ *
  */
 
 int redFs_partition_header_sanity_check(Red_Header* rh);

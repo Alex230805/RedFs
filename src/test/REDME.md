@@ -22,11 +22,11 @@ This will create a binary "**test**" inside "*src/test*" which is the main testi
 executable inside "*src/test/bin*" of "**format.c**", "**dir.c**" and "**file.c**". Those are the testing program for:
 
 
-* the formatting process of redFs: initializing disks and creating partitions, manipulating them and so on 
+* format.c : the formatting process of redFs: initializing disks and creating partitions, manipulating them and so on 
 
-* for directory and tree navigation: it create different folders and perform different operations inside them 
+* dir.c : directory and tree navigation: it create different folders and perform different operations inside them 
 
-* for file manipulation: it create and elaborate on different files. 
+* file.c : file manipulation: it create and elaborate on different files. 
 
 
 > It's suggested to test the library first before using it for your own projects.

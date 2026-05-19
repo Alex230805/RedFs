@@ -6,11 +6,9 @@ LIB:=-L./src/bin
 
 all: null
 
-
 null: 
 	# no option selected, please set one of the following target: 
 	# 
-	# - testbench: compile a testbench to test the filesystem
 	# - test: compile test program
 	# - lib: compile libredfs static library
 
@@ -19,9 +17,6 @@ test: lib_virt ./src/test/main.c ./src/test/format.c ./src/test/dir.c ./src/test
 	$(COMP) $(FLAGS) $(INC) $(LIB) ./src/test/dir.c -o ./src/test/bin/dir -lredfs
 	$(COMP) $(FLAGS) $(INC) $(LIB) ./src/test/format.c -o ./src/test/bin/format -lredfs
 	$(COMP) $(FLAGS) $(INC) $(LIB) ./src/test/main.c -o ./src/test/test -lredfs
-
-testbench: lib_virt redFs_testbench.c
-	$(COMP) $(FLAGS) $(INC) $(LIB) redFs_testbench.c -o testbench -lredfs
 
 lib_virt: ./src/lib/redFs.c ./src/lib/redFs_io.c ./src/lib/redFs_folder.c ./src/lib/redFs_node.c
 	$(COMP) $(FLAGS) $(INC) -g -c ./src/lib/redFs.c -o ./src/bin/redFs.o
