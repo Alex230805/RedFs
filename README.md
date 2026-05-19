@@ -1,12 +1,14 @@
-
 > [!WARNING]  
 > This project require custom integration of simple endpoints. It's a simplified design that may not be compatible with 
 > already existing implementation of known filesystem. It's suggested to use redFs if you need a simple and fast filesystem 
 > implementation for simple operative systems, runtime environment and so on. 
 
+
 # RedFS: reduced filesystem for low power platform and OS implementations
 
+
 ---
+
 
 RedFS is a simple filesystem implementation for **low power** and **simple operative systems** built to work 
 witth small devices like microcomputers or microcontrollers, or generally in a limited computational environment. 
@@ -24,6 +26,10 @@ without wasting resources while still providing an easy-to-understand structure 
 to interact with the filesystem. 
 If you need backward compatibility with different filesystems ... then you should find another project. 
 
+
+---
+
+
 #### Quick vews on the main redFs specs:
 
 
@@ -37,7 +43,9 @@ If you need backward compatibility with different filesystems ... then you shoul
 
 * **Auto-caching system:** after a predefined threshold redFs can automatically sinch back changes to the disk 
 
+
 ---
+
 
 ## How to build your RedFs library
 
@@ -47,7 +55,7 @@ a static library. The static library target is provided to create a *modern syst
 can be linked with the compilers in Unix based system. 
 
 
-To build the test program:
+#### To build the test program:
 
 
 ```markdown
@@ -56,6 +64,7 @@ make test
 
 ```
 
+
 The test executable can be found inside *src/test* folder. It spawn three different processes that test redFs 
 on different aspect such **disk dormatting**, **general allocation**, **file manipulation**, **directory creation** 
 and so on. 
@@ -63,7 +72,9 @@ and so on.
 
 #### It's suggested to look inside the testing program's source code for practicle example on how to use redFs 
 
+
 ---
+
 
 It's possible to use the files located inside *src/test* for practicle example on how to use redFs functions to 
 operate on the disk. Each test file, namely **file.c** **dir.c** and **format.c**, divides the three possible 
@@ -72,7 +83,9 @@ can find and take suggestion on what's possible to do with redFs and what it loo
 For more informations you can directly consults the header files inside *src/include* which provide a description for 
 each API functions that are designed to be used by applications or by the system. 
 
+
 ---
+
 
 #### How to build the library target
 
@@ -80,11 +93,13 @@ each API functions that are designed to be used by applications or by the system
 As stated the library compile redFs as a static library that can be linked with different executable during compilation 
 time, it's suggested to read first **[how to integrate redFs with your system](/#how_to_integrate)**.
 
+
 ```markdown
 
 make lib 
 
 ```
+
 
 > What it means 'compiling a statis library' really with custom integrations and custom systems?
 
@@ -99,7 +114,9 @@ the entire library depend on just two standard end point for reading and writing
 applied to custom compilation for different systems that may require different process or stages to produce 
 a working version of redFs. 
 
+
 ---
+
 
 #### Example on a possible scenario 
 
@@ -136,7 +153,9 @@ also on the entire executable structure or library structure.
 > **Each system which is not unix-based will differs inevitably from the standard compilation structure described 
 inside the makefile, for this reason it's not possible to use the lib target for each and every platform**
 
+
 ---
+
 
 ## How to integrate RedFs with your system {#how_to_integrate}
 
@@ -152,7 +171,9 @@ traffics of redFs pass through, and this allow a customizable way to integrate r
 with virtual drives as it is shown alreay inside the implementation compliable with VIRTIO flag during compilation 
 time. 
 
+
 #### The main functions on which redFs is build
+
 
 ```C
 
@@ -164,6 +185,7 @@ int redFs_disk_action_read(RED_PTR address, uint8_t* data, ...);
 
 ```
 
+
 Those accept the address of the memory location alongside the data (1 byte) that need to be written or read. It's possible 
 to add as many auxilary functions as desired to connect redFs with your system, but you should remember that the WRITE and 
 READ function must be integrated with what you're implementing. **You can check out the existing example inside the redFs_io.h 
@@ -173,7 +195,9 @@ with the testing suit was made.**
 
 For further details check *src/include/redFs_io.h* header file. 
 
+
 ---
+
 
 ## Main desing
 
