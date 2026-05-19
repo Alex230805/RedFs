@@ -238,7 +238,7 @@ int redFs_print_dir_content(Red_Header* header, char* path){
 		ret = redFs_change_directory(header, chopped_path[i]);
 		if(ret) return ret;
 	}
-	ret = redFs_get_current_dir_content(header);
+	ret = redFs_print_current_dir_content(header);
 	if(ret) return ret;
 	header->current_node = cache;
 	ret = redFs_cache_update(header);

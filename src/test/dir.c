@@ -137,7 +137,7 @@ int main(int argc, char** argv){
 			ret = redFs_create_directory(&header, local_strdup(name), 0); 
 			if(ret) return ret;
 		}
-		ret = redFs_get_current_dir_content(&header);
+		ret = redFs_print_current_dir_content(&header);
 		if(ret) return ret;
 		ret = redFs_change_path(&header, "/");
 		if(ret) return ret;
@@ -173,7 +173,7 @@ int main(int argc, char** argv){
 				ret = redFs_create_directory(&header, name, 0);
 				if(ret) return ret;
 			}
-			ret = redFs_get_current_dir_content(&header);
+			ret = redFs_print_current_dir_content(&header);
 			if(ret) return ret;
 			NOTYF("Returning inside %s", sl.strings[i].ptr);
 			ret = redFs_change_directory(&header, "..");
