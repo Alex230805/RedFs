@@ -29,6 +29,6 @@ executable inside "*src/test/bin*" of "**format.c**", "**dir.c**" and "**file.c*
 * file.c : file manipulation: it create and elaborate on different files. 
 
 
-> It's suggested to test the library first before using it for your own projects.
+> NOTE: It's suggested to test the library first before using it for your own projects.
 
 

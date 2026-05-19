@@ -18,30 +18,22 @@
  *		| $$  | $$|  $$$$$$$|  $$$$$$$| $$     |  $$$$$$/
  *		|__/  |__/ \_______/ \_______/|__/      \______/ 
  *                                                 
- *	a simple file system implementation for low power and simple systems
+ *	a simple filesystem implementation for low power and simple systems
  *
  *	This is a filesystem built with the intention to be used on small devices like microcomputer 
- *	or microcontroller, generally speaking in a limited computational environment. To do so the 
- *	redFs embed different functions for not only managing the disk but also for managing partition 
- *	tables, boot sector and so on. Due to the fact that it's desinged for small system the structure 
- *	for the disk partitioning and how it's built could be different from the modern way of doing things, 
- *	it's designed to be as simple as possible without wasting resources.
+ *	or microcontroller, or generally in a limited computational environment. 
+ *	To do so the redFs embed different functions for not only managing the disk but also for managing 
+ *	partition tables, boot sector and so on. 
+ *	Due to the fact that it's desinged for small and simple system the structure for the disk partitioning 
+ *	and how it's built could be different from the modern way of doing things, but be compatible it's not 
+ *	one of redFs requirement, it's designed to be as simple as possible without wasting resources while still 
+ *	providing an easy-to-understand structure with accomodating functions to interact with the filesystem.
  *
  *	The boot sector is 512 byte wide.
- *
- *	The partition table is defined by the Red_ptable.
  *	
  *	Max addressable space ( 32bit pointer limit ): 4gb
- *
- *	Each partition is flagged with the redFs id ( which is composed by the prefix+id+suffix), during 
- *	the partition's finding task this is used as the main verification code for the partition integrity. 
  *	
- *	To be able to work with partitions easily redFs provide a function to manage the main partition table.
- *	It's essential to have a pointer table to each partition on the disk to avoid a manual search as 
- *	much as possible, and for that reason redFs embedd a partitioning system which create a small table 
- *	with an offset larger than the boot sector size ( which is 512 bytes by default in redFs ) and from 
- *	there a special struct is placed to address each fstab entry point.
- *
+ *	For more informations check out the informations on top of function declaration inside headers file.
  */
 /* ======================================================================================================== */
 

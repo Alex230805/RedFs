@@ -6,49 +6,177 @@
 
 # RedFS: reduced filesystem for low power platform and OS implementations
 
-RedFS a filesystem designed to be capable of indexing a maximum of 4gb of storage 
-of any type, offering a modern and easy to use API to allow a simple integration 
-with custom OS or Runtime Environments. It offer modern-like partitioning while 
-maintaning a simple and easy to modify architecture. 
+---
+
+RedFS is a simple filesystem implementation for **low power** and **simple operative systems** built to work 
+witth small devices like microcomputers or microcontrollers, or generally in a limited computational environment. 
 
 
-This was initially designed for low power machines like microcontrollers or old 
-microcomputer system that needed some kind of integration with bigger memory support 
-without introducing too much complexity. 
+RedFs embed different functions to easily interact with the filesystem and the disk generally, giving 
+a simplified access to the disk partition table, boot sector and each partition, allowing a simplified 
+tree navigation and file manipulation. 
 
 
-## Simplified API to allow an easy integration
+Due to the fact that it's desinged for small and simple systems the structure speaking of disk partitioning 
+and how it's built could be different from the *modern way of doing things* (whatever that means), but be 
+compatible with existing system it's not one of redFs main goals, it's designed to be as simple as possible 
+without wasting resources while still providing an easy-to-understand structure with accomodating functions 
+to interact with the filesystem. 
+If you need backward compatibility with different filesystems ... then you should find another project. 
+
+#### Quick vews on the main redFs specs:
 
 
-This filesystem is designed to be extremely simple and easy to integrate in different 
-kind of scenarios due to the base API it uses. Since it's not possible to create a 
-universal junction between different hardware and software system the library 
-uses two general read and write functions located inside "redFs_io.c", those are the 
-main endpoints of the library from which every physical request is sent by the library.
+* **The boot sector is 512** byte wide starting from the base of the disk.
 
-Essentially to integrate this project with your situation you need to modify the read and 
-write implementation to adapt them to your kind of scenario. For example, inside an operative 
-system you may find different sofware implementation that serve as node to connect different 
-type of device call and abstract them as a general entry point for an higher development level, 
-the read and write function will be modified to use this abstraction layer and then is the OS 
-to do the job, selecting the device and useing the driver to properly communicate with it, the 
-filesystem is only there to translate and write it own data structure inside the device, the how 
-and when is decided by the abstraction layer connected inside the end point of the library. 
+* **Max addressable space** ( 32bit pointer limit ): 4gb
 
-Another example is the virtual implementation of the testbench file. The makefile uses two 
-different commands to compile the library: 
+* **Max of 256 partition** supported by the partition table 
 
-- make testbench
-- make lib
+* **Custom partition table** located in the first bytes of the disk immediately after the boot sector  
 
-The difference is that inside the testbench the endpoint of the library are modified to work 
-with a virtual drive interpreted by a single file in the project directory. By doing so the 
-testbench can run all the necessary test function and operate ( from the redFs perspective ) 
-like on a normal drive, while the endpoint ( the main read and write function ) redirect the 
-request and directly translate it to work with the virtual file stream. 
+* **Auto-caching system:** after a predefined threshold redFs can automatically sinch back changes to the disk 
 
+---
+
+## How to build your RedFs library
+
+
+RedFs comes with the makefile which can build a test program (which test the redFs functions) and redFs as 
+a static library. The static library target is provided to create a *modern system compatible* library that 
+can be linked with the compilers in Unix based system. 
+
+
+To build the test program:
+
+
+```markdown
+
+make test
+
+```
+
+The test executable can be found inside *src/test* folder. It spawn three different processes that test redFs 
+on different aspect such **disk dormatting**, **general allocation**, **file manipulation**, **directory creation** 
+and so on. 
+
+
+#### It's suggested to look inside the testing program's source code for practicle example on how to use redFs 
+
+---
+
+It's possible to use the files located inside *src/test* for practicle example on how to use redFs functions to 
+operate on the disk. Each test file, namely **file.c** **dir.c** and **format.c**, divides the three possible 
+operations that you may want to integrate with existing applications in your system; inside those files you 
+can find and take suggestion on what's possible to do with redFs and what it looks like to work with redFs. 
+For more informations you can directly consults the header files inside *src/include* which provide a description for 
+each API functions that are designed to be used by applications or by the system. 
+
+---
+
+#### How to build the library target
+
+
+As stated the library compile redFs as a static library that can be linked with different executable during compilation 
+time, it's suggested to read first **[how to integrate redFs with your system](/#how_to_integrate)**.
+
+```markdown
+
+make lib 
+
+```
+
+> What it means 'compiling a statis library' really with custom integrations and custom systems?
+
+
+The library target it's meant to produce a static library compatible with moder unix-like systems such 
+all the distribution of linux, BSD or MacOs, but of couse **it is not an usable target for dedicated scenario** 
+which may differs a lot from unix like system, even at the level of compilation or linking process. 
+
+
+It's obvious that it's not possible to take in account different scenarios and that was one reason for why 
+the entire library depend on just two standard end point for reading and writing files. The same can be 
+applied to custom compilation for different systems that may require different process or stages to produce 
+a working version of redFs. 
+
+---
+
+#### Example on a possible scenario 
+
+
+If you want to compile redFs as a static library for a **microcontroller** ( such arduinos ) then you can 
+follow a similar process of what's is shown inside the makefile. You just need to customize the I/O ( further 
+discussed in the next section ) and select the right compiler for your microcontroller. Then you can just 
+produce a single library that can be used to link with the executable of your system. 
+
+
+From what's it's already present, you just need to update the compiler and the I/O implementation. 
+
+
+#### Example of a more complex scenario 
+
+
+Let's set a simple microcomputer, with a simple processor with descrete power, and with a limited amount 
+of resourced. Let's imagine that this hardware has a simple runtime environment which is meant to work with 
+simple applications, even in parallel. 
+
+
+This runtime environment does not have a compatible executable format like the one used for linux, and does 
+not have a compatible linker as it's present on linux, but it has a simple C compiler that can produce 
+object files in a custom format and compile it in a working "library" by using a simple referencing system 
+for functions call inside the objects. 
+To work with this system redFs must include the header files of the system to communicate with memory devices. 
+
+
+This scenario require a custom building process of redFs that must follow this limits, and of course the output 
+cannot be compatible with modern systems, not only on a binary level ( where CPU instructions may differs ) but 
+also on the entire executable structure or library structure. 
+
+
+> **Each system which is not unix-based will differs inevitably from the standard compilation structure described 
+inside the makefile, for this reason it's not possible to use the lib target for each and every platform**
+
+---
+
+## How to integrate RedFs with your system {#how_to_integrate}
+
+
+RedFs is based on two main functions that communicate with one memory drive, handling the **READ** and **WRITE**
+operations. The library's section related to the I/O operations are located inside *src/lib/redFs_io.c* and the 
+header inside *src/include/redFs_io.h*. 
+
+
+You **MUST** customize those functions based on the system where you want to integrate redFs. This design choise 
+was made to allow a quick and simplified interaction with the system, isolating the main functions where all the 
+traffics of redFs pass through, and this allow a customizable way to integrate redFs in different system, even 
+with virtual drives as it is shown alreay inside the implementation compliable with VIRTIO flag during compilation 
+time. 
+
+#### The main functions on which redFs is build
+
+```C
+
+// WRITE
+int redFs_disk_action_write(RED_PTR address, uint8_t data, ...);
+
+// READ
+int redFs_disk_action_read(RED_PTR address, uint8_t* data, ...);
+
+```
+
+Those accept the address of the memory location alongside the data (1 byte) that need to be written or read. It's possible 
+to add as many auxilary functions as desired to connect redFs with your system, but you should remember that the WRITE and 
+READ function must be integrated with what you're implementing. **You can check out the existing example inside the redFs_io.h 
+header for more informations, or directly check out the implementation inside redFs_io.c to see how the virtual tunneling 
+with the testing suit was made.**
+
+
+For further details check *src/include/redFs_io.h* header file. 
+
+---
 
 ## Main desing
+
 
 The libray uses 32bit pointers to organize information inside the drive, this was mainly a 
 semplification choise since it would have required a more flexible design for each fstab 
