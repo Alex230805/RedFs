@@ -198,9 +198,9 @@ typedef struct{
 
 
 /*
- *	RedFS partition header. It's a struct that store the 
+ *	RedFS partition header. It's a struct that store 
  *	major information about one partition selected by 
- *	the system ready to be used by one or more process.
+ *	the system or a process,  ready to be used.
  *
  */
 
@@ -257,7 +257,7 @@ typedef struct{
  *	The partition table store partition reference with a fixed offset, if too many partition 
  *	are created and deleted there's a risk of fragmentation inside the drive. If a new partition 
  *	cannot fit in a deallocated space between two already allocated partition then a new contiguous 
- *	space will be allocated, leaving a free spot inside the partition table. 
+ *	space will be allocated, leaving a free spot inside the partition table's mapping. 
  *	
  */
 
@@ -274,11 +274,9 @@ int redFs_init_disk(uint32_t disk_size);
 int redFs_create_partition(char* name, uint32_t size);
 
 /*
- *	In order to delete a partition it's necessary to provide the partition id associated with the partition 
- *	and the name of the partition. This is done to provide a minimum of protection layer ti avoid deleting 
- *	unwanted partition. 
+ *	In order to delete a partition it's necessary to provide the partition id and the name of the partition. 
  *
- *	Each partition cannot have a smaller size than the sizeof(Red_Fstab). The redFs library allow an allocation 
+ *	Each partition cannot have a smaller size than sizeof(Red_Fstab). The redFs library allow an allocation 
  *	of a partition with equal or slightly bigger size, but of course you wouldn't be able to create any folder 
  *	or file. 
  *
@@ -291,18 +289,19 @@ int redFs_delete_partition(char*name,uint32_t partition_id);
  *	function. It will reset the fstab from the disk, initializing it back to the original state. 
  *	The formatting process does not erase all data from the partition, but it reset the fstab; if you have a 
  *	"saving" of the latest fstab before the formatting process, it's possible to still access the file throughout the 
- *	partition with the functions that take the Red_Header argument untill you deallocate the cached Red_Header from ram. 
+ *	partition with the functions that take a Red_Header* argument until it deallocation is required. 
  *	It's suggested to trigger a delete signal for every instance of a single partition to then proceed with the formatting 
- *	process of the partition, this to avoid different processes to access the disk with an old instance of Red_Header while 
- *	the partition is formatted, invalidating further updates after a reboot or a new fetch of Red_Header directly from the disk.
+ *	process, you must avoid different processes to access one disk with an old instance of Red_Header* (which include an instance 
+ *	of a cached Red_Fstab* ) after the partition is formatted that may cause invalidation of further updates after a reboot or a new 
+ *	fetch of Red_Header directly from the disk.
  *
  *	IMPORTANT: if you call functions that use Red_Header and you perform different write action till triggering the auto caching 
- *	system, the cached Red_Header provided as argument will overwrite the cleaned fstab of the partition, invalidating the 
- *	previous format.
+ *	system, the cached Red_Header provided as argument will overwrite the cleaned fstab associated with the partition, invalidating the 
+ *	previous format. See "format.c" inside "src/test" to see how the formatting process is performed.
  *
  *	IMPORTANT: the previous assigned partition id will be invalidated after a format process. It's suggested to first 
  *	erase the partition, then acquiring the latest id with the dedicated function, then fetching the latest header with the 
- *	obtained id. 
+ *	obtained id. See "format.c" inside "src/test" to see how the formatting process is performed.
  */
 
 int redFs_erase_partition(uint32_t partition_id);
@@ -335,8 +334,8 @@ void redFs_strerror(int return_state);
  *	The simple design of redFs allow instance of a partition to be obtained in order to operate with anything 
  *	related to node manipulation. This was a design choice dictated to simplify the integration with simple 
  *	operative sistem or runtime environment. The system can get an instance of one partition header to operate 
- *	on one partition while maintaining the access to other partitions header that different processes may have 
- *	requested to redFs. 
+ *	on it while maintaining the access to other partitions header that different processes may have 
+ *	requested to the system. 
  *
  *	NOTE: The synch between two instances of the same partition cannot be handled directly by redFs due to the 
  *	high complexity of different scenarios, thus the system on top redFs must be capable of handling disk access 
@@ -379,14 +378,14 @@ uint32_t redFs_get_partition_id_from_name(char* partition_name);
  *	Similar to redFs_get_partition_id_from_name, if a match is found inside the partition table, then the 
  *	name is copied inside the destination buffer provided as an argument ( note that the maximum size for 
  *	a partition name is STRING_LIMIT, ensure to have a char* dest buffer with at least this size), if nothing 
- *	is found then the dest buffer a string termination will be set as the first character. 
+ *	is found then dest[0] will be set to Hex 0x00 ( C string termination ). 
  *
  */
 
 int redFs_get_partition_name_from_id(char* dest, uint32_t partition_id);
 
 /*
- *	This function can print those stats and show them to the standard output. 
+ *	This function can print partition header's stats to the standard output. 
  *
  */
 
@@ -396,13 +395,13 @@ void redFs_print_partition_header(Red_Header* rh);
  *	Each disk access and node manipulation increase a counter that keep tracks of the total operation for 
  *	time instance. Those operation change inevitably the fstab associated with a partition, wheter it's a 
  *	folder creation or a file deletion. It's not possible and convinient to continuousy access the disk to 
- *	synch back those little updates for speed reason and disk general healt. 
- *	RedFs manage that by having a function that synch back the latest fstab state on one header, this is 
- *	also done automatically if the if the number disk write access is greater than the default threshold 
- *	which is defined by CACHE_TIME_LIMIT. 
+ *	synch back those little updates for speed reason and disk general health. 
+ *	RedFs manage that with a function that synch back the latest fstab state on one header, this is 
+ *	also done automatically if the number of disk write access is greater than the default threshold 
+ *	which is defined by CACHE_TIME_LIMIT. ( each write access increase this counter by 1. )
  *	Each header has his own counter that will be reset each time the write access surpass this limit. 
  *
- *	IMPORTANT: If a partition is closed you must call this function manually to synch the latest changes 
+ *	IMPORTANT: If a partition is closed you MUST call this function manually to synch the latest changes 
  *	inside the fstab that may have not be catched by the automatic synch system.
  *
  */
@@ -412,8 +411,8 @@ int redFs_sync_partition(Red_Header* header);
 /*
  *	This function print a fragmentation report for a generic Red_Fstab that may be associated with a partition 
  *	or be created separately. Each page has his own fragment map that's used to both allocate and provide an 
- *	offset for a new node, which simplify keeping track of the fragmentation allowing also a pretty graphics 
- *	representation on what's going on inside your partition. 
+ *	offset for a new node starting from the page block pointer, which also simplify keeping track of the fragmentation 
+ *	allowing a pretty graphics representation on what's going on inside your partition. 
  *
  *	This take account also the disk memory mapped to store the partition's fstab itself. 
  *

@@ -147,8 +147,6 @@ int main(){
 	Cmd cmd[CMD_LEN] = {0};
 	cmd_set(cmd[0], "format", "TEST_FORMAT_IMAGE", "30896200", "2890200");
 	cmd_set(cmd[1], "dir"	, "TEST_DIR_IMAGE"	 , "30896200");
-
-
 	Process *proc = spawn_list_synch_wait(cmd, CMD_LEN);
 
 	printf("Testing completed: \n");
