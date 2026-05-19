@@ -142,7 +142,7 @@ int main(int argc, char** argv){
 	ret = redFs_sync_partition(&rh);
 	if(ret) return ret;
 
-	NOTY("Testing completed");
+	NOTY("Test completed");
 	redFs_close_static_virtual_memory();
 	return 0;
 }

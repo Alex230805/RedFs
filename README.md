@@ -1,5 +1,10 @@
-# RedFS: reduced filesystem for low power platform and os implementations
 
+> [!WARNING]  
+> This project require custom integration of simple endpoints. It's a simplified design that may not be compatible with 
+> already existing implementation of known filesystem. It's suggested to use redFs if you need a simple and fast filesystem 
+> implementation for simple operative systems, runtime environment and so on. 
+
+# RedFS: reduced filesystem for low power platform and OS implementations
 
 RedFS a filesystem designed to be capable of indexing a maximum of 4gb of storage 
 of any type, offering a modern and easy to use API to allow a simple integration 

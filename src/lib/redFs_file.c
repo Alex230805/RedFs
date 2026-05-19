@@ -203,7 +203,8 @@ int redFs_read_file_in_current_location(Red_Header* header, char*name, uint8_t* 
 				return FILE_POINTER_ERROR;
 			}
 		}else{
-			return FILE_TOO_SMALL_ERROR;
+			//return FILE_TOO_SMALL_ERROR;
+			break;
 		}
 	}
 	return 0;

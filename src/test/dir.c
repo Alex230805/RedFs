@@ -186,6 +186,6 @@ int main(int argc, char** argv){
 	NOTY("Synching base changes to the disk");
 	ret = redFs_sync_partition(&header);
 	redFs_close_static_virtual_memory();
-	NOTY("Testing completed");
+	NOTY("Test completed");
 	return ret;
 }

@@ -143,15 +143,16 @@ int main(){
 	strcat(path, "/bin/");
 	fclose(stream);
 
-	#define CMD_LEN 2
+	#define CMD_LEN 3
 	Cmd cmd[CMD_LEN] = {0};
 	cmd_set(cmd[0], "format", "TEST_FORMAT_IMAGE", "30896200", "2890200");
 	cmd_set(cmd[1], "dir"	, "TEST_DIR_IMAGE"	 , "30896200");
+	cmd_set(cmd[2], "file"	, "TEST_FILE_IMAGE"  , "30896200", "filetest.txt");
 	Process *proc = spawn_list_synch_wait(cmd, CMD_LEN);
 
 	printf("Testing completed: \n");
 	for(int i=0;i<CMD_LEN;i++){
-		printf("[CMD %d] -> %s returned %d\n",i ,cmd[i].array[0], proc[i].ret_status);
+		printf("[CMD %d] -> %.*s returned %d\n",i, 16,cmd[i].array[0], proc[i].ret_status);
 		if(proc[i].ret_status){
 			redFs_strerror(proc[i].ret_status);
 		}
