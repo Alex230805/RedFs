@@ -38,7 +38,7 @@ static int redFs_local_buffer_tracker = 0;
  *
  */
 
-int redFs_change_path(Red_Header*header, char* path);
+REDAPI int redFs_change_path(Red_Header*header, char* path);
 
 /*
  *	It return the name of the current directory pointed by the current_node address of Red_Header*.
@@ -47,15 +47,15 @@ int redFs_change_path(Red_Header*header, char* path);
  *
  */
 
-char* redFs_get_current_dir_name(Red_Header* header);
+REDAPI char* redFs_get_current_dir_name(Red_Header* header);
 
 /*
  *	Node fetch function to get a clone of the current_node folder. 
- *	Upon succesful operation it return 0, otherwise an error code is returned. 
+ *	Upon successful operation it return 0, otherwise an error code is returned. 
  *
  */
 
-int redFs_get_current_directory(Red_Header* header, Red_Node* node);
+REDAPI int redFs_get_current_directory(Red_Header* header, Red_Node* node);
 
 /*
  *	Embedded functions to get a simplified output of the content inside the 
@@ -64,7 +64,7 @@ int redFs_get_current_directory(Red_Header* header, Red_Node* node);
  *
  */
 
-int redFs_print_current_dir_content(Red_Header* header);
+REDAPI int redFs_print_current_dir_content(Red_Header* header);
 
 /*
  *	Wrapper of redFs_print_current_dir_content(Red_Header* header). It can take 
@@ -74,7 +74,7 @@ int redFs_print_current_dir_content(Red_Header* header);
  *
  */
 
-int redFs_print_dir_content(Red_Header* header, char* path);
+REDAPI int redFs_print_dir_content(Red_Header* header, char* path);
 
 /*
  *	Create directory operate on relative and absolute path. It can perform tree 
@@ -83,7 +83,7 @@ int redFs_print_dir_content(Red_Header* header, char* path);
  *
  */
 
-int redFs_create_directory(Red_Header* header, char* full_path, int permissions);
+REDAPI int redFs_create_directory(Red_Header* header, char* full_path, int permissions);
 
 /*
  *	Complement of redFs_create_directory(). It provide a simple function to delete 
@@ -93,7 +93,7 @@ int redFs_create_directory(Red_Header* header, char* full_path, int permissions)
  *
  */
 
-int redFs_remove_directory(Red_Header* header, char*full_path);
+REDAPI int redFs_remove_directory(Red_Header* header, char*full_path);
 
 /* ======================================================================================================== */
 

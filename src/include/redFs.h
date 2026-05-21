@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+
+
 /* ======================================================================================================== */
 /*
  *
@@ -37,11 +39,13 @@
  */
 /* ======================================================================================================== */
 
+#define REDAPI					// search for REDAPI for a quick reference to the library's API functions
+
 #define REDFS_ID_PREFIX			94694209
 #define REDFS_ID				('R'<<24 | 'D'<<16 | 'F'<<8 | 'S')
 #define REDFS_SUFFIX			96499042
 
-#define REDFS_VERSION			0x010000 /* redfs version  */
+#define REDFS_VERSION			0x010000 /* redfs version, from least significant byte ( patch ) going up till major version  */
 #define PARTITION_LIMIT			256     /* number of partition that any redFs partition table can handle */
 #define BOOT_SECTOR_SIZE		512		/* bytes */
 #define PARTITION_BLANK_OFFSET	1024	/* byte offset that separate two partitions */
@@ -238,6 +242,13 @@ typedef struct{
 #include "redFs_file.h"
 
 /*
+ *	Accessible software function to get redFs version during runtime.
+ *
+ */
+
+REDAPI void redFs_get_version(int* major, int* minor, int* patch);
+
+/*
  *	This function is designed to create a new partition table inside the drive with 
  *	a base offset of BOOT_SECTOR_SIZE byte. A Red_ptable structure will be allocated 
  *	and used to store the pointer to the partition, the associated id and the partition 
@@ -254,7 +265,7 @@ typedef struct{
  *	
  */
 
-int redFs_init_disk(uint32_t disk_size);
+REDAPI int redFs_init_disk(uint32_t disk_size);
 
 /* 
  *	A new partition will be created inside the partition table of the disk with a char* name associated and 
@@ -264,7 +275,7 @@ int redFs_init_disk(uint32_t disk_size);
  *
  */
 
-int redFs_create_partition(char* name, uint32_t size);
+REDAPI int redFs_create_partition(char* name, uint32_t size);
 
 /*
  *	In order to delete a partition it's necessary to provide the partition id and the name of the partition. 
@@ -275,7 +286,7 @@ int redFs_create_partition(char* name, uint32_t size);
  *
  */
 
-int redFs_delete_partition(char*name,uint32_t partition_id);
+REDAPI int redFs_delete_partition(char*name,uint32_t partition_id);
 
 /*
  *	redFs_erase_partition() is a user function that serve as a wrapper for the internal redFs_format_partition
@@ -297,14 +308,14 @@ int redFs_delete_partition(char*name,uint32_t partition_id);
  *	obtained id. See "format.c" inside "src/test" to see how the formatting process is performed.
  */
 
-int redFs_erase_partition(uint32_t partition_id);
+REDAPI int redFs_erase_partition(uint32_t partition_id);
 
 /*
  *	This function print the partition table associated with a specific partition. 
  *
  */
 
-void redFs_print_fstab(uint32_t partition_id);
+REDAPI void redFs_print_fstab(uint32_t partition_id);
 
 /*
  *	This function print the partition table struct located in the base of the disk. If the disk is not 
@@ -312,7 +323,7 @@ void redFs_print_fstab(uint32_t partition_id);
  *
  */
 
-void redFs_print_ptable();
+REDAPI void redFs_print_ptable();
 
 /* 
  *	Each redFs function that operate with the disk directly may return different errors depending on what's 
@@ -321,7 +332,7 @@ void redFs_print_ptable();
  *
  */
 
-void redFs_strerror(int return_state);
+REDAPI void redFs_strerror(int return_state);
 
 /*	
  *	The simple design of redFs allow instance of a partition to be obtained in order to operate with anything 
@@ -336,7 +347,7 @@ void redFs_strerror(int return_state);
  *
  */
 
-void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh);
+REDAPI void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh);
 
 /*
  *	Reading the partition header may fail if there is a problem with the disk interaction, and to prevent 
@@ -359,7 +370,7 @@ void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh);
  *
  */
 
-int redFs_partition_header_sanity_check(Red_Header* rh);
+REDAPI int redFs_partition_header_sanity_check(Red_Header* rh);
 
 /*
  *	Navigate the partition table and check for a specified filesystem. If the filesystem is present it return true, 
@@ -369,7 +380,7 @@ int redFs_partition_header_sanity_check(Red_Header* rh);
  *
  */
 
-bool redFs_partition_defined(char* partition_name);
+REDAPI bool redFs_partition_defined(char* partition_name);
 
 /*
  *	Search inside the partition table for the specified partition. If a match is found then the dedicated id of
@@ -377,7 +388,7 @@ bool redFs_partition_defined(char* partition_name);
  *
  */
 
-uint32_t redFs_get_partition_id_from_name(char* partition_name);
+REDAPI uint32_t redFs_get_partition_id_from_name(char* partition_name);
 
 /*
  *	Similar to redFs_get_partition_id_from_name, if a match is found inside the partition table, then the 
@@ -387,14 +398,14 @@ uint32_t redFs_get_partition_id_from_name(char* partition_name);
  *
  */
 
-int redFs_get_partition_name_from_id(char* dest, uint32_t partition_id);
+REDAPI int redFs_get_partition_name_from_id(char* dest, uint32_t partition_id);
 
 /*
  *	This function can print partition header's stats to the standard output. 
  *
  */
 
-void redFs_print_partition_header(Red_Header* rh);
+REDAPI void redFs_print_partition_header(Red_Header* rh);
 
 /*
  *	Each disk access and node manipulation increase a counter that keep tracks of the total operation for 
@@ -411,7 +422,7 @@ void redFs_print_partition_header(Red_Header* rh);
  *
  */
 
-int redFs_sync_partition(Red_Header* header);
+REDAPI int redFs_sync_partition(Red_Header* header);
 
 /*
  *	This function print a fragmentation report for a generic Red_Fstab that may be associated with a partition 
@@ -423,7 +434,7 @@ int redFs_sync_partition(Red_Header* header);
  *
  */
 
-void redFs_print_fragmentation_report(Red_Fstab* fstab);
+REDAPI void redFs_print_fragmentation_report(Red_Fstab* fstab);
 
 /* ======================================================================================================== */
 

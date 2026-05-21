@@ -2,6 +2,14 @@
 
 #include "redFs.h"
 
+void redFs_get_version(int* major, int* minor, int* patch){
+	*patch =  REDFS_VERSION & 0xFF;
+	*minor = (REDFS_VERSION >> 8) & 0xFF;
+	*major = (REDFS_VERSION >> 16) & 0xFF;
+	return;
+}
+
+
 int redFs_format_partition_table(uint32_t max_disk_size){
 	Red_ptable ptable = {0};
 	ptable.max_disk_size = max_disk_size;

@@ -91,7 +91,7 @@ void redFs_close_static_virtual_memory();
  *
  */
 
-int redFs_disk_action_write(RED_PTR address, uint8_t data, ...);
+REDAPI int redFs_disk_action_write(RED_PTR address, uint8_t data, ...);
 
 /*
  *	redFs_disk_action_read(RED_PTR address, uint8_t data, ...) is the functions who provide a connection 
@@ -102,7 +102,7 @@ int redFs_disk_action_write(RED_PTR address, uint8_t data, ...);
  *
  */
 
-int redFs_disk_action_read(RED_PTR address, uint8_t* data, ...);
+REDAPI int redFs_disk_action_read(RED_PTR address, uint8_t* data, ...);
 
 
 #ifndef REDFS_IO_IMP
