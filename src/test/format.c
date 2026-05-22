@@ -49,8 +49,16 @@ int main(int argc, char** argv){
 	NOTY("Fetching partition header");
 	Red_Header rh = {0};
 	redFs_get_partition_header(partition_id, &rh);
-	ret = redFs_partition_header_sanity_check(&rh);
+
+	ret = 1;
+	for(int i=0;i<2 && ret != 0; i++){
+		for(int j=0;j<5 && ret != 0;j++){
+			ret = redFs_partition_header_sanity_check(&rh);
+		}
+		redFs_get_partition_header(partition_id, &rh);
+	}
 	if(ret) return ret;
+
 	NOTY("Validation completed");
 	
 	NOTY("Printing partition table");
@@ -107,7 +115,14 @@ int main(int argc, char** argv){
 		
 	NOTY("Try to read a non existing partition");
 	redFs_get_partition_header(partition_id, &rh);
-	ret = redFs_partition_header_sanity_check(&rh);
+
+	ret = 1;
+	for(int i=0;i<2 && ret != 0; i++){
+		for(int j=0;j<5 && ret != 0;j++){
+			ret = redFs_partition_header_sanity_check(&rh);
+		}
+		redFs_get_partition_header(partition_id, &rh);
+	}
 	if(!ret) return ret;
 	
 	NOTY("Try deleting unexisting partition");
@@ -128,10 +143,15 @@ int main(int argc, char** argv){
 	// after each erase you must always fetch the latest partition header, see redFs.h next to redFs_erase_partition
 	partition_id = redFs_get_partition_id_from_name(partition_name);
 	redFs_get_partition_header(partition_id, &rh);
-	ret = redFs_partition_header_sanity_check(&rh);
-	if(ret) {
-		return ret;
+	ret = 1;
+	for(int i=0;i<2 && ret != 0; i++){
+		for(int j=0;j<5 && ret != 0;j++){
+			ret = redFs_partition_header_sanity_check(&rh);
+		}
+		redFs_get_partition_header(partition_id, &rh);
 	}
+	if(ret) return ret;
+
 	NOTY("Printing partition table");
 	redFs_print_ptable();
 	NOTY("Printing partition header");

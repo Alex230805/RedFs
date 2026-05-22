@@ -2,6 +2,7 @@
 
 #include "redFs.h"
 
+
 void redFs_get_version(int* major, int* minor, int* patch){
 	*patch =  REDFS_VERSION & 0xFF;
 	*minor = (REDFS_VERSION >> 8) & 0xFF;
@@ -639,119 +640,6 @@ void redFs_print_fragmentation_report(Red_Fstab* fstab){
 
 
 
-void redFs_strerror(int return_state){
-	switch(return_state){
-		case NOERROR:
-			fprintf(stderr,"No error reported during operation\n");
-			return;
-		case PARTITION_TABLE_FORMAT_ERROR: 
-			fprintf(stderr,"Error: Unable to format the partition table\n");
-			return;
-		case BOOT_SECTOR_WRITING_ERROR: 
-			fprintf(stderr,"Error: Unable to write the boot sector\n");
-			return;
-		case PARTITION_TABLE_WRITE_ERROR: 
-			fprintf(stderr,"Error: Partition table writing error, cannot update partition table\n");
-			return;
-		case PARTITION_TABLE_READ_ERROR: 
-			fprintf(stderr,"Error: Partition table reading error, cannot get partition table\n");
-			return;
-		case PARTITION_NOT_FOUND_ERROR: 
-			fprintf(stderr,"Error: Unable to find the specified partition\n");
-			return;
-		case NOT_ENOUGH_DISK_SPACE_ERROR: 
-			fprintf(stderr,"Error: Not enough disk space available\n");
-			return;
-		case FSTAB_READ_ERROR: 
-			fprintf(stderr,"Error: Unable to read fstab\n");
-			return;
-		case FSTAB_WRITE_ERROR: 
-			fprintf(stderr,"Error: Unable to write fstab\n");
-			return;
-		case FSTAB_PAGE_WRITE_ERROR: 
-			fprintf(stderr,"Error: Cannot write partition page due to a write error\n");
-			return;
-		case PARTITION_FORMAT_DISK_ERROR: 
-			fprintf(stderr,"Error: Unable to format partition due to a disk error\n");
-			return;
-		case PARTITION_SIZE_NOT_SUFFICIENT:
-			fprintf(stderr,"Error: The specified partition size is not sufficient to store even the fstab\n");
-			return;
-		case PARTITION_ACTION_UNKNOWN: 
-			fprintf(stderr,"Partition action error: the required action could not be performed since it doesn't exist or it's still under development\n");
-			return;
-		case PARTITION_NODE_WRITING_ERROR:
-			fprintf(stderr,"Error: unable to allocate new node for this partition\n");
-			return;
-		case PARTITION_NODE_READING_ERROR:
-			fprintf(stderr,"Error: unable to read node or node content from this partition\n");
-			return;
-		case REDFS_UNSUPPORTED_FUNCTION:
-			fprintf(stderr,"Error: function not supported\n");
-			return;
-		case REDFS_BLOCK_FRAGMENT_ERROR:
-			fprintf(stderr,"Error while trying to read the block fragment map\n");
-			return;
-		case NODE_ALLOCATION_ERROR: 
-			fprintf(stderr,"Could not allocate node due to a disk error\n");
-			return;
-		case NODE_DEALLOCATION_ERROR:
-			fprintf(stderr, "Could not deallocate node due to a disk error\n");
-			return;
-		case NODE_NOT_FOUND:
-			fprintf(stderr,"Could not locate the specified node\n");
-			return;
-		case NODE_IS_NOT_A_FOLDER_ERROR:
-			fprintf(stderr, "The specified node is not a folder, cannot search for folders inside this node\n");
-			return;
-		case NODE_RECURSIVE_DEALLOCATION_ERROR:
-			fprintf(stderr, "Recursive deallocation failed\n");
-			return;
-		case FOLDER_NOT_FOUND_ERROR:
-			fprintf(stderr, "Error: no such folder\n");
-			return;
-		case FILE_ALLOCATION_ERROR:
-			fprintf(stderr, "Unable to create file in the current directory due to a partition error\n");
-			return;
-		case FILE_NOT_FOUND_ERROR:
-			fprintf(stderr, "File not found\n");
-			return;
-		case FILE_POINTER_ERROR:
-			fprintf(stderr, "File pointer error: unable to read the complete file from the filesystem\n");
-			return;
-		case FILE_TOO_SMALL_ERROR:
-			fprintf(stderr, "Cannot read the specified size: file is smaller\n");
-			return;
-		case FILE_DEALLOCATION_ERROR:
-			fprintf(stderr, "Cannot remove/deallocate file\n");
-			return;
-		case FILE_ALREADY_EXIST:
-			fprintf(stderr, "File already exist\n");
-			return;
-		case PARTITION_TABLE_EMPTY:
-			fprintf(stderr, "The partition table is empty for the selected disk\n");
-			return;
-		case GENERAL_INVALID_POINTER:
-			fprintf(stderr, "Invalid pointer provided\n");
-			return;
-		case PARTITION_INVALID_ID:
-			fprintf(stderr, "Sanity check failed, partition id did not match the reference id inside the partition table\n");
-			return;
-		case PARTITION_POINTER_LOCATION_MISMATCH:
-			fprintf(stderr, "Sanity check failed, pointer to where the partition begin is different from what's on the partition table\n");
-			return;
-		case PARTITION_VERSION_INCOMPATIBLE: 
-			fprintf(stderr, "Cannot operate inside the current partition, found an incompatible redFs major version used to create this partition\n");
-			return;
-		case PARTITION_MAGIC_ID_IS_INVALID:
-			fprintf(stderr, "Sanity check failed on magic number check, the redFs identifier for the cloned memory block is different from the identifier in the current fstab. This indicate a wrong pointer offset or a possible memory corruption, in any case DO NOT operate on this partition.\n");
-			return;
-		default: 
-			fprintf(stderr,"Error: Unknown error\n");
-			return;
-	}
-}
-
 int redFs_sync_partition(Red_Header* header){
 	if(header->cache_timing == 0) return 0;
 	for(uint32_t i=0;i<sizeof(Red_Fstab);i++){
@@ -770,4 +658,28 @@ int redFs_cache_update(Red_Header *header){
 		 ret = redFs_sync_partition(header);
 	}
 	return ret;
+}
+
+const char* redFs_strerror(int return_state){
+	if(return_state < RED_INVALID_ERROR){
+		return red_state_lit[return_state];
+	}
+	return red_state_lit[RED_INVALID_ERROR];
+}
+
+int redFs_print_strerror(int return_state, FILE* stream){
+	const char* string = redFs_strerror(return_state);
+	int string_size = strlen(string);
+	if(fwrite((char*)string, sizeof(char), string_size, stream) < string_size){
+		return 1;
+	}
+	return 0;
+}
+
+int redFs_print_strerror_to_stdout(int return_state){
+	return redFs_print_strerror(return_state, stdout);
+}
+
+int redFs_print_strerror_to_stderr(int return_state){
+	return redFs_print_strerror(return_state, stderr);
 }

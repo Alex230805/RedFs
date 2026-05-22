@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-
+#include <stdio.h>
 
 
 /* ======================================================================================================== */
@@ -90,8 +90,50 @@ typedef enum{
 	PARTITION_INVALID_ID,
 	PARTITION_POINTER_LOCATION_MISMATCH,
 	PARTITION_VERSION_INCOMPATIBLE,
-	PARTITION_MAGIC_ID_IS_INVALID
+	PARTITION_MAGIC_ID_IS_INVALID,
+	RED_INVALID_ERROR,
+	RED_ERROR_LIMIT
 }Red_State;
+
+static const char* red_state_lit[RED_ERROR_LIMIT] = {
+	[NOERROR]						=	"No error reported during operation",  			
+	[PARTITION_TABLE_FORMAT_ERROR]	=	"Error: Unable to format the partition table",  			
+	[BOOT_SECTOR_WRITING_ERROR]		=	"Error: Unable to write the boot sector",  			
+	[PARTITION_TABLE_WRITE_ERROR]	=	"Error: Partition table writing error, cannot update partition table",  			
+	[PARTITION_TABLE_READ_ERROR]	=	"Error: Partition table reading error, cannot get partition table",  			
+	[PARTITION_NOT_FOUND_ERROR]		=	"Error: Unable to find the specified partition",  			
+	[NOT_ENOUGH_DISK_SPACE_ERROR]	=	"Error: Not enough disk space available",  			
+	[FSTAB_READ_ERROR]				=	"Error: Unable to read fstab",  			
+	[FSTAB_WRITE_ERROR]				=   "Error: Unable to write fstab",  			
+	[FSTAB_PAGE_WRITE_ERROR]		=	"Error: Cannot write partition page due to a write error",  			
+	[PARTITION_FORMAT_DISK_ERROR]	=	"Error: Unable to format partition due to a disk error",  			
+	[PARTITION_SIZE_NOT_SUFFICIENT] =	"Error: The specified partition size is not sufficient to store even the fstab",  			
+	[PARTITION_ACTION_UNKNOWN]		=	"Partition action error: the required action could not be performed since it doesn't exist or it's still under development",  			
+	[PARTITION_NODE_WRITING_ERROR]	=   "Error: unable to allocate new node for this partition",  			
+	[PARTITION_NODE_READING_ERROR]	=	"Error: unable to read node or node content from this partition",  			
+	[REDFS_UNSUPPORTED_FUNCTION]	=	"Error: function not supported",  			
+	[REDFS_BLOCK_FRAGMENT_ERROR]	=	"Error while trying to read the block fragment map",  			
+	[NODE_ALLOCATION_ERROR]			=	"Could not allocate node due to a disk error",  			
+	[NODE_DEALLOCATION_ERROR]		=	"Could not deallocate node due to a disk error",  			
+	[NODE_NOT_FOUND]				=	"Could not locate the specified node",  			
+	[NODE_IS_NOT_A_FOLDER_ERROR]	=	"The specified node is not a folder, cannot search for folders inside this node",  			
+	[NODE_RECURSIVE_DEALLOCATION_ERROR] =	"Recursive deallocation failed",  			
+	[FOLDER_NOT_FOUND_ERROR]		=	"Error: no such folder",  			
+	[FILE_ALLOCATION_ERROR]			=	"Unable to create file in the current directory due to a partition error",  			
+	[FILE_NOT_FOUND_ERROR]			=	"File not found",  			
+	[FILE_POINTER_ERROR]			=	"File pointer error: unable to read the complete file from the filesystem",  			
+	[FILE_TOO_SMALL_ERROR]			=	"Cannot read the specified size: file is smaller",  			
+	[FILE_DEALLOCATION_ERROR]		=	"Cannot remove/deallocate file",  			
+	[FILE_ALREADY_EXIST]			=	"File already exist",  			
+	[PARTITION_TABLE_EMPTY]			=	"The partition table is empty for the selected disk",  			
+	[GENERAL_INVALID_POINTER]		=	"Invalid pointer provided",  			
+	[PARTITION_INVALID_ID]			=	"Sanity check failed, partition id did not match the reference id inside the partition table",  			
+	[PARTITION_POINTER_LOCATION_MISMATCH] =	"Sanity check failed, pointer to where the partition begin is different from what's on the partition table",  			
+	[PARTITION_VERSION_INCOMPATIBLE] =	"Cannot operate inside the current partition, found an incompatible redFs major version used to create this partition",  			
+	[PARTITION_MAGIC_ID_IS_INVALID]	=	"Sanity check failed on magic number check, the redFs identifier for the cloned memory block is different from the identifier in the current fstab. This indicate a wrong pointer offset or a possible memory corruption, in any case DO NOT operate on this partition.",
+	[RED_INVALID_ERROR]				=	"Unknown error"
+};
+
 
 #define STRING_LIMIT	  16							/* String len limit, it's used for the node/folder/file naming */
 #define PTR_TABLE_TYPE	  uint32_t	
@@ -327,12 +369,39 @@ REDAPI void redFs_print_ptable();
 
 /* 
  *	Each redFs function that operate with the disk directly may return different errors depending on what's 
- *	happened during the operation. This function take the error code and prints out a stringified format 
- *	to show the error. 
+ *	happened during the operation. This function take the error code and returns an string description 
+ *	to the caller.
  *
  */
 
-REDAPI void redFs_strerror(int return_state);
+REDAPI const char* redFs_strerror(int return_state);
+
+/*
+ *	Similar to redFs_strerror, it accept the error code from any redFs functions and it will print the 
+ *	error messages inside the specified output stream.
+ *	If it can print into the specified output stream it will return 0, otherwise it will return a non-zero 
+ *	exit code. 
+ *	
+ *	NOTE: the file stream must be opened by the caller. 
+ */
+
+REDAPI int redFs_print_strerror(int return_state, FILE* stream);
+
+/*
+ *	Shortcut of redFs_print_strerror, it accept the error code from any redFs functions and it will print 
+ *	the error message into stdout file stream.
+ *
+ */
+
+REDAPI int redFs_print_strerror_to_stdout(int return_state);
+
+/*
+ *	Similar to redFs_print_strerror_to_stdout, it accept the error code from any redFs functions and it will 
+ *	print the error message into stderr filestream.
+ *
+ */
+
+REDAPI int redFs_print_strerror_to_stderr(int return_state);
 
 /*	
  *	The simple design of redFs allow instance of a partition to be obtained in order to operate with anything 

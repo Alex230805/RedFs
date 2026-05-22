@@ -152,10 +152,7 @@ int main(){
 
 	printf("Testing completed: \n");
 	for(int i=0;i<CMD_LEN;i++){
-		printf("[CMD %d] -> %.*s returned %d\n",i, 16,cmd[i].array[0], proc[i].ret_status);
-		if(proc[i].ret_status){
-			redFs_strerror(proc[i].ret_status);
-		}
+		printf("[CMD %d] -> %*s returned %*d -> %s\n",i, 6,cmd[i].array[0], 2,proc[i].ret_status, redFs_strerror(proc[i].ret_status));
 	}
 	return 0;
 }
