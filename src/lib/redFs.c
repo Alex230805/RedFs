@@ -2,11 +2,16 @@
 
 #include "redFs.h"
 
+uint32_t redFs_get_errno(){
+	return redFs_errno;
+}
 
 void redFs_get_version(int* major, int* minor, int* patch){
 	*patch =  REDFS_VERSION & 0xFF;
 	*minor = (REDFS_VERSION >> 8) & 0xFF;
 	*major = (REDFS_VERSION >> 16) & 0xFF;
+
+	redFs_errno = 0;
 	return;
 }
 
@@ -18,24 +23,29 @@ int redFs_format_partition_table(uint32_t max_disk_size){
 	uint32_t offset = BOOT_SECTOR_SIZE;
 	for(uint32_t i=0;i<size;i++){
 		if(redFs_disk_action_write(offset+i, *((uint8_t*)&ptable+i))){
-			return (int)PARTITION_TABLE_FORMAT_ERROR;
+			redFs_errno = PARTITION_TABLE_FORMAT_ERROR;
+			return PARTITION_TABLE_FORMAT_ERROR;
 		}
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
 int redFs_write_boot_sector(uint8_t*content, uint32_t len){
 	for(uint32_t i=0;i<len && len < BOOT_SECTOR_SIZE;i++){
 		if(redFs_disk_action_write(i, content[i])){
+			redFs_errno = BOOT_SECTOR_WRITING_ERROR;
 			return (int)BOOT_SECTOR_WRITING_ERROR;
 		}
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
 int redFs_update_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t partition_id, uint8_t partition_number, char* name){
 	Red_ptable ptable = redFs_get_partition_table();
 	if(partition_number > ptable.partition_count){
+		redFs_errno = PARTITION_NOT_FOUND_ERROR;
 		return (int)PARTITION_NOT_FOUND_ERROR;
 	}
 	ptable.partition_list[partition_number] = p_fstab_adr;
@@ -43,8 +53,10 @@ int redFs_update_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t pa
 	ptable.partition_id[partition_number] = partition_id;
 	strcpy(ptable.partition_name[partition_number], name);
 	if(redFs_rewrite_partition_table(ptable)){
+		redFs_errno = PARTITION_TABLE_WRITE_ERROR;
 		return (int)PARTITION_TABLE_WRITE_ERROR;
 	}
+	redFs_errno = 0;
 	return 0;
 }
 int redFs_update_last_on_partition_table(uint32_t p_fstab_adr, uint32_t size,uint32_t partition_id, char* name){
@@ -54,8 +66,10 @@ int redFs_update_last_on_partition_table(uint32_t p_fstab_adr, uint32_t size,uin
 	ptable.partition_id[ptable.partition_count-1] = partition_id;
 	strcpy(ptable.partition_name[ptable.partition_count-1], name);
 	if(redFs_rewrite_partition_table(ptable)){
+		redFs_errno = PARTITION_TABLE_WRITE_ERROR;
 		return (int)PARTITION_TABLE_WRITE_ERROR;
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -69,8 +83,10 @@ int redFs_push_on_partition_table(uint32_t p_fstab_adr, uint32_t size, uint32_t 
 	ptable.partition_count+=1;
 
 	if(redFs_rewrite_partition_table(ptable)){
+		redFs_errno = PARTITION_TABLE_WRITE_ERROR;
 		return (int)PARTITION_TABLE_WRITE_ERROR;
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -82,8 +98,10 @@ int redFs_pop_off_partition_table(){
 	memset(ptable.partition_name[ptable.partition_count-1], 0, sizeof(char)*STRING_LIMIT);
 	ptable.partition_count-=1;
 	if(redFs_rewrite_partition_table(ptable)){
+		redFs_errno = PARTITION_TABLE_WRITE_ERROR; 
 		return (int)PARTITION_TABLE_WRITE_ERROR;
 	}
+	redFs_errno = 0; 
 	return 0;
 }
 
@@ -100,6 +118,7 @@ Red_ptable redFs_get_partition_table(){
 		}
 		*((uint8_t*)&p+i) = buffer;
 	}
+	redFs_errno = 0; 
 	return p;
 }
 
@@ -111,6 +130,7 @@ int redFs_rewrite_partition_table(Red_ptable new_ptable){
 			return (int)PARTITION_TABLE_FORMAT_ERROR;
 		}
 	}
+	redFs_errno = 0; 
 	return 0;
 }
 
@@ -122,8 +142,8 @@ int redFs_sort_sync_partition_table(){
 	uint32_t swap_id = 0;
 	char swap_name[STRING_LIMIT] = {0};
 
-	for(uint32_t j=0;j<ptable.partition_count;j++){
-		for(uint32_t i=0;i<ptable.partition_count-1;i++){
+	for(uint8_t j=0;j<ptable.partition_count;j++){
+		for(uint8_t i=0;i<ptable.partition_count-1;i++){
 			if(ptable.partition_list[i] > ptable.partition_list[i+1]){
 				swap_ptr = ptable.partition_list[i+1];
 				swap_size = ptable.partition_size[i+1];
@@ -144,6 +164,7 @@ int redFs_sort_sync_partition_table(){
 	}
 	
 	int err = redFs_rewrite_partition_table(ptable);
+	redFs_errno = err;
 	return err;
 }
 
@@ -161,7 +182,7 @@ RED_PTR redFs_calculate_new_partition_offset(uint32_t size){
 	}
 
 	// search for usable space between existing partitions
-	for(uint32_t i=0;i<ptable.partition_count-1;i++){
+	for(uint8_t i=0;i<ptable.partition_count-1;i++){
 		uint32_t start = ptable.partition_size[i] + ptable.partition_list[i]+PARTITION_BLANK_OFFSET;
 		uint32_t end =  ptable.partition_list[i+1];
 		if(end-start >= size){ return start; }
@@ -193,9 +214,13 @@ int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t s
 	fstab->partition_id = redFs_generate_partition_id();
 	Red_ptable ptable = redFs_get_partition_table();
 	if(starting_point+partition_size > ptable.max_disk_size){
-		return 1;
+		redFs_errno = NOT_ENOUGH_DISK_SPACE_ERROR; 
+		return PARTITION_SIZE_NOT_SUFFICIENT;
 	}
-	if(partition_size < sizeof(Red_Fstab)) return 1;
+	if(partition_size < sizeof(Red_Fstab)) {
+		redFs_errno = PARTITION_SIZE_NOT_SUFFICIENT;
+		return PARTITION_SIZE_NOT_SUFFICIENT;
+	}
 	
 	// TODO: add not-contiguous allocation and mapping 
 	uint32_t i=0;
@@ -216,6 +241,7 @@ int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t s
 	fstab->free_blocks = (uint32_t)(partition_size/BLOCK_SIZE) - block_per_fstab;
 	fstab->block_limit = (uint32_t)(partition_size/BLOCK_SIZE);
 	fstab->entry_point = 0;
+	redFs_errno = 0; 
 	return 0;
 }
 
@@ -242,15 +268,18 @@ Red_Fstab* redFs_get_fstab(uint8_t partition_number){
 int redFs_update_fstab(Red_Fstab fstab, uint8_t partition_number){
 	Red_ptable ptable = redFs_get_partition_table();
 	if(partition_number > ptable.partition_count){
+		redFs_errno = PARTITION_NOT_FOUND_ERROR;
 		return (int)PARTITION_NOT_FOUND_ERROR;
 	}
 	RED_PTR address = ptable.partition_list[partition_number];
 
 	for(uint32_t i=0;i<sizeof(Red_Fstab);i++){
 		if(redFs_disk_action_write(address+i, *((uint8_t*)&fstab+i))){
+			redFs_errno = FSTAB_WRITE_ERROR;
 			return (int)FSTAB_WRITE_ERROR;
 		}
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -281,6 +310,7 @@ int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32
 	 * */
 
 	if(redFs_define_fstab(partition_name, partition_size, starting_point, fstab)){
+		redFs_errno = NOT_ENOUGH_DISK_SPACE_ERROR; 
 		return (int)NOT_ENOUGH_DISK_SPACE_ERROR;
 	}
 	
@@ -298,11 +328,16 @@ int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32
 	uint32_t i=0;
 	while((fstab->block_state[i] == RESERVED_BLOCK || fstab->block_state[i] == FULL_BLOCK) && i < fstab->block_limit){i+=1;}
 	int frag_offset = redFs_get_free_fragment_offset(fstab->raw_block_ptr[i].fragment_map);
-	if(frag_offset == -1) return 1;
+	if(frag_offset == -1) {
+		redFs_errno = REDFS_FRAGMENT_OFFSET_ERROR;
+		return REDFS_FRAGMENT_OFFSET_ERROR;
+	}
+
 
 	RED_PTR node_adr = fstab->raw_block_ptr[i].base_ptr + frag_offset*sizeof(Red_Node);
 	for(uint32_t k=0;k<sizeof(Red_Node);k++){
 		if(redFs_disk_action_write(node_adr+k, *((uint8_t*)&entry_point+k))){
+			redFs_errno = FSTAB_PAGE_WRITE_ERROR; 
 			return (int)FSTAB_PAGE_WRITE_ERROR;
 		}
 	}
@@ -324,45 +359,64 @@ int redFs_format_partition(char* partition_name, uint32_t partition_size, uint32
 	// save fstab->inside the drive
 	for(i=0;i<sizeof(Red_Fstab);i++){
 		if(redFs_disk_action_write(starting_point+i, *((uint8_t*)fstab+i))){
+			redFs_errno = FSTAB_WRITE_ERROR;
 			return (int)FSTAB_WRITE_ERROR;
 		}
 	}
-
+	redFs_errno = 0;
 	return 0;
 }
 
 
 int redFs_init_disk(uint32_t disk_size){
 	if(redFs_format_partition_table(disk_size)){
+		redFs_errno = PARTITION_TABLE_FORMAT_ERROR;
 		return (int)PARTITION_TABLE_FORMAT_ERROR;
 	}
 	for(int i=0;i<BOOT_SECTOR_SIZE;i++){
 		if(redFs_disk_action_write(i, 0)){
+			redFs_errno = BOOT_SECTOR_WRITING_ERROR; 
 			return (int)BOOT_SECTOR_WRITING_ERROR;
 		}
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
 int redFs_create_partition(char* name, uint32_t size){
-	if(size < sizeof(Red_Fstab)) return (int)PARTITION_SIZE_NOT_SUFFICIENT;
+	if(size < sizeof(Red_Fstab)) {
+		redFs_errno = PARTITION_SIZE_NOT_SUFFICIENT; 
+		return (int)PARTITION_SIZE_NOT_SUFFICIENT;
+	}
 	static Red_Fstab fstab = {0};
 	RED_PTR offset = redFs_calculate_new_partition_offset(size);
 	if(offset == 0){
+		redFs_errno  = NOT_ENOUGH_DISK_SPACE_ERROR;
 		return NOT_ENOUGH_DISK_SPACE_ERROR;
 	}
 	
 	int ret = redFs_push_on_partition_table(offset, size, 0, name);
 	if(ret){
 		int pop_err = redFs_pop_off_partition_table();
-		if(pop_err) return pop_err;
+		if(pop_err) {
+			redFs_errno = pop_err;	
+			return pop_err;
+		}
+		redFs_errno = ret;
 		return ret;
 	}
 	ret = redFs_format_partition(name, size, offset, &fstab);
-	if(ret) return ret;
+	if(ret) {
+		redFs_errno = ret;
+		return ret;
+	}
 	ret = redFs_update_last_on_partition_table(offset, size, fstab.partition_id, name);
-	if(ret) return ret;
+	if(ret) {
+		redFs_errno = ret;
+		return ret;
+	}
 	ret = redFs_sort_sync_partition_table();
+	redFs_errno = ret;
 	return ret;
 }
 
@@ -370,9 +424,11 @@ int redFs_erase_partition(uint32_t partition_id){
 	static Red_Fstab local = {0};
 	Red_ptable ptable = redFs_get_partition_table();
 	if(ptable.partition_count < 1){
+		redFs_errno = PARTITION_TABLE_EMPTY;
 		return PARTITION_TABLE_EMPTY;
 	}
 	if(ptable.max_disk_size == 0){
+		redFs_errno = PARTITION_TABLE_READ_ERROR; 
 		return PARTITION_TABLE_READ_ERROR;
 	}
 	RED_PTR adr = 0;
@@ -388,14 +444,22 @@ int redFs_erase_partition(uint32_t partition_id){
 		}
 	}
 	if(adr == 0){
+		redFs_errno = PARTITION_NOT_FOUND_ERROR;
 		return PARTITION_NOT_FOUND_ERROR;
 	}
 	int ret = 0;
 	ret = redFs_format_partition(name, size, adr, &local);
-	if(ret) return ret;
+	if(ret) {
+		redFs_errno = ret;
+		return ret;
+	}
 	ptable.partition_id[pos] = local.partition_id;
 	ret = redFs_rewrite_partition_table(ptable);
-	if(ret) return ret;
+	if(ret) {
+		redFs_errno = ret;
+		return ret;
+	}
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -410,12 +474,14 @@ int redFs_delete_partition(char*name,uint32_t partition_id){
 	bool end = false;
 	Red_ptable ptable = redFs_get_partition_table();
 	if(ptable.max_disk_size == 0){
+		redFs_errno = PARTITION_TABLE_READ_ERROR;
 		return (int)PARTITION_TABLE_READ_ERROR;
 	}
 	for(int i=0;i<ptable.partition_count && !end;i++){
 		if(ptable.partition_id[i] == partition_id){
 			Red_Fstab* fstab = redFs_get_fstab(i);
 			if(fstab->redfs_id[0] == 0){
+				redFs_errno = FSTAB_READ_ERROR;
 				return (int)FSTAB_READ_ERROR;
 			}
 			if(strcmp(fstab->partition_name, name) == 0){
@@ -428,16 +494,22 @@ int redFs_delete_partition(char*name,uint32_t partition_id){
 				}
 				ptable.partition_count -= 1;
 				int err = redFs_rewrite_partition_table(ptable);
-				if(err) return err;
+				if(err) {
+					redFs_errno = err;
+					return err;
+				}
 				end = true;
 				err = redFs_sort_sync_partition_table();
+				redFs_errno = err;
 				return err;
 			}
 		}
 	}
 	if(!end){
+		redFs_errno = PARTITION_NOT_FOUND_ERROR; 
 		return (int)PARTITION_NOT_FOUND_ERROR;
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -463,7 +535,7 @@ bool redFs_partition_defined(char* partition_name){
 uint32_t redFs_get_partition_id_from_name(char* partition_name){
 	Red_ptable ptable = redFs_get_partition_table();
 	if(ptable.max_disk_size == 0){
-		redFs_strerror(PARTITION_TABLE_READ_ERROR);
+		redFs_errno = PARTITION_TABLE_READ_ERROR;
 		return 0;
 	}
 	if(partition_name == NULL) return 0;
@@ -472,26 +544,34 @@ uint32_t redFs_get_partition_id_from_name(char* partition_name){
 			return ptable.partition_id[i];
 		}
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
 int redFs_get_partition_name_from_id(char* dest, uint32_t partition_id){
 	Red_ptable ptable = redFs_get_partition_table();
 	if(ptable.max_disk_size == 0){
+		redFs_errno = PARTITION_TABLE_READ_ERROR;
 		return PARTITION_TABLE_READ_ERROR;
 	}
-	if(dest == NULL) return GENERAL_INVALID_POINTER;
+	if(dest == NULL) {
+		redFs_errno = GENERAL_INVALID_POINTER;
+		return GENERAL_INVALID_POINTER;
+	}
 	for(uint8_t i=0; i < ptable.partition_count; i++){
 		if(partition_id == ptable.partition_id[i]){
 			strcpy(dest, ptable.partition_name[i]);
+			redFs_errno = 0;
 			return 0;
 		}
 	}
 	dest[0] = '\0';
+	redFs_errno = PARTITION_NOT_FOUND_ERROR;
 	return PARTITION_NOT_FOUND_ERROR;
 }
 
 void redFs_debug_print_fstab(Red_Fstab* fstab){
+	redFs_errno = 0;
 	printf("RedFs id: %d %d %d\n", fstab->redfs_id[0], fstab->redfs_id[1],fstab->redfs_id[2]);
 	printf("Partition name: %s\n", fstab->partition_name);
 	printf("RedFs version: %d\n", fstab->version);
@@ -520,10 +600,11 @@ void redFs_print_fstab(uint32_t partition_id){
 		if(ptable.partition_id[i] == partition_id){
 			Red_Fstab* fstab = redFs_get_fstab(i);
 			redFs_debug_print_fstab(fstab);
+			redFs_errno = 0;
 			return;
 		}
 	}
-	redFs_strerror(PARTITION_NOT_FOUND_ERROR);
+	redFs_errno = PARTITION_NOT_FOUND_ERROR;
 }
 
 void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh){
@@ -534,7 +615,7 @@ void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh){
 		if(ptable.partition_id[i] == partition_id){
 			for(uint32_t j=0;j<sizeof(Red_Fstab); j++){
 				if(redFs_disk_action_read(ptable.partition_list[i]+j, ((uint8_t*)&rh->fstab+j))){
-					redFs_strerror(FSTAB_READ_ERROR);
+					redFs_errno = FSTAB_READ_ERROR;
 					return;
 				}
 			}
@@ -558,12 +639,16 @@ void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh){
 			end = true;
 		}
 	}
+	redFs_errno = 0;
 	return;
 }
 
 int redFs_partition_header_sanity_check(Red_Header* rh){
 	Red_ptable ptable = redFs_get_partition_table();
-	if(ptable.partition_count < 1) return PARTITION_TABLE_EMPTY;
+	if(ptable.partition_count < 1) {
+		redFs_errno = PARTITION_TABLE_EMPTY;
+		return PARTITION_TABLE_EMPTY;
+	}
 	bool status = false;
 	RED_PTR address = 0;
 	uint32_t pid = 0;
@@ -574,15 +659,21 @@ int redFs_partition_header_sanity_check(Red_Header* rh){
 			pid = ptable.partition_id[i];
 		}
 	}
-	if(!status) return PARTITION_NOT_FOUND_ERROR;
+	if(!status) {
+		redFs_errno = PARTITION_NOT_FOUND_ERROR;
+		return PARTITION_NOT_FOUND_ERROR;
+	}
 	if(pid != rh->fstab.partition_id){
+		redFs_errno = PARTITION_INVALID_ID;
 		return PARTITION_INVALID_ID;
 	}
 	if(rh->fstab.raw_block_ptr[0].base_ptr != address){
+		redFs_errno = PARTITION_POINTER_LOCATION_MISMATCH;
 		return PARTITION_POINTER_LOCATION_MISMATCH;
 	}
 	if(((rh->fstab.version>>16) & 0xFF) != ((REDFS_VERSION>>16) & 0xFF)){
 		/* check for major version mismatch*/
+		redFs_errno = PARTITION_VERSION_INCOMPATIBLE;
 		return PARTITION_VERSION_INCOMPATIBLE;
 	}
 	if(\
@@ -590,12 +681,15 @@ int redFs_partition_header_sanity_check(Red_Header* rh){
 		rh->fstab.redfs_id[1] != REDFS_ID		 || \
 		rh->fstab.redfs_id[2] != REDFS_SUFFIX		\
 	){
+		redFs_errno = PARTITION_MAGIC_ID_IS_INVALID;
 		return PARTITION_MAGIC_ID_IS_INVALID;
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
 void redFs_print_partition_header(Red_Header* rh){
+	redFs_errno = 0;
 	printf("Used space: %d bytes / %.2f Mb\n", rh->used_space, (double)rh->used_space/1000000);
 	printf("Reserved space: %d bytes / %.2f Mb\n", rh->reserved_space, (double)rh->reserved_space/1000000);
 	printf("Partition address: 0x%x\n",rh->partition_address);
@@ -612,6 +706,7 @@ void redFs_print_partition_header(Red_Header* rh){
 }
 
 void redFs_print_ptable(){
+	redFs_errno = 0;
 	Red_ptable ptable = redFs_get_partition_table();
 	printf("Max disk size: %u\n", ptable.max_disk_size);
 	printf("Number of partition: %d\n", ptable.partition_count);
@@ -622,6 +717,7 @@ void redFs_print_ptable(){
 }
 
 void redFs_print_fragmentation_report(Red_Fstab* fstab){
+	redFs_errno = 0;
 	printf("RedFs fragmentation report\n");
 	for(uint32_t i=0;i<fstab->block_limit;i++){
 		printf("Memory block %d at 0x%x:  ->  ", i, fstab->raw_block_ptr[i].base_ptr);
@@ -644,10 +740,12 @@ int redFs_sync_partition(Red_Header* header){
 	if(header->cache_timing == 0) return 0;
 	for(uint32_t i=0;i<sizeof(Red_Fstab);i++){
 		if(redFs_disk_action_write(header->partition_address+i, *((uint8_t*)&header->fstab+i))){
+			redFs_errno = FSTAB_WRITE_ERROR;
 			return (int)FSTAB_WRITE_ERROR;
 		}
 	}
 	header->cache_timing = 0;
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -657,10 +755,12 @@ int redFs_cache_update(Red_Header *header){
 	if(header->cache_timing > header->cache_limit){
 		 ret = redFs_sync_partition(header);
 	}
+	redFs_errno = ret;
 	return ret;
 }
 
 const char* redFs_strerror(int return_state){
+	redFs_errno = 0;
 	if(return_state < RED_INVALID_ERROR){
 		return red_state_lit[return_state];
 	}
@@ -668,9 +768,11 @@ const char* redFs_strerror(int return_state){
 }
 
 int redFs_print_strerror(int return_state, FILE* stream){
+	redFs_errno = 0;
 	const char* string = redFs_strerror(return_state);
 	int string_size = strlen(string);
-	if(fwrite((char*)string, sizeof(char), string_size, stream) < string_size){
+	if((int)fwrite((char*)string, sizeof(char), string_size, stream) < string_size){
+		redFs_errno = 1;
 		return 1;
 	}
 	return 0;

@@ -6,8 +6,10 @@ int redFs_touch_file_in_current_location(Red_Header* header, char* name, uint8_t
 	int ret = redFs_cache_update(header);
 	if(ret) return ret;
 	if(redFs_get_file_from_current_folder(header, name) != 0){
+		redFs_errno = FILE_ALREADY_EXIST;
 		return 	FILE_ALREADY_EXIST;
 	}
+	redFs_errno = 0;
 	return redFs_node_create_child_node(header, name, permissions, PAGE_IS_FILE, header->current_node);
 }
 
@@ -22,6 +24,7 @@ int redFs_touch_file(Red_Header* header, char* path, uint8_t permissions){
 	ret = redFs_touch_file_in_current_location(header, file_name, permissions);
 	if(ret) return ret;
 	header->current_node = current_node;
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -51,6 +54,7 @@ RED_PTR redFs_get_file_from_current_folder(Red_Header* header, char*name){
 			}
 		}
 	}
+	redFs_errno = 0;
 	return adr;
 }
 
@@ -63,8 +67,12 @@ RED_PTR redFs_get_file(Red_Header* header, char*path){
 	int ret = redFs_change_path_already_chopped(header, cpath);
 	if(ret) return ret;
 	node_adr = redFs_get_file_from_current_folder(header, file_name);
-	if(node_adr == 0) return FILE_NOT_FOUND_ERROR;
+	if(node_adr == 0) {
+		redFs_errno = FILE_NOT_FOUND_ERROR;
+		return FILE_NOT_FOUND_ERROR;
+	}
 	header->current_node = current_node;
+	redFs_errno = 0;
 	return node_adr;
 }
 
@@ -77,20 +85,23 @@ int __redFs_recursive_remove_file(Red_Header* header, RED_PTR ptr, Red_File* f){
 	}
 	ret = redFs_node_dealloc(header, ptr);
 	if(ret) return ret;
+	redFs_errno = 0;
 	return 0;
 }
 
 int redFs_remove_file_in_current_location(Red_Header* header, char*name){
 	RED_PTR ptr = redFs_get_file_from_current_folder(header, name);
 	if(ptr == 0){
+		redFs_errno = FILE_NOT_FOUND_ERROR;
 		return FILE_NOT_FOUND_ERROR;
 	}
 	static Red_File f = {0};
 	int ret = __redFs_recursive_remove_file(header, ptr, &f);
 	if(ret){
-		redFs_strerror(ret);
+		redFs_errno = FILE_DEALLOCATION_ERROR;
 		return FILE_DEALLOCATION_ERROR;
 	}
+	redFs_errno = 0;
 	return redFs_node_pop_child_node_with_ptr(header, ptr, header->current_node);
 }
 
@@ -104,6 +115,7 @@ int redFs_remove_file(Red_Header* header, char* path){
 	ret = redFs_remove_file_in_current_location(header, file_name);
 	if(ret) return ret;
 	header->current_node = current_node;
+	redFs_errno = 0;
 	return 0;
 
 }
@@ -133,22 +145,32 @@ int redFs_write_file_in_current_location(Red_Header* header, char*name, uint8_t*
 				if(ret)	return ret;
 				current_ptr = f.next_page;
 			}else{
+				redFs_errno = FILE_POINTER_ERROR;
 				return FILE_POINTER_ERROR;
 			}
 		}else{
 			RED_PTR c_adr = redFs_node_alloc(header, CHAINED_NAME, f.permissions, PAGE_IS_FILE);
-			if(c_adr == 0) return FILE_ALLOCATION_ERROR;
+			if(c_adr == 0) {
+				redFs_errno = FILE_ALLOCATION_ERROR;
+				return FILE_ALLOCATION_ERROR;
+			}
 			f.next_page = c_adr;
 			f.chained = true;
 			ret = redFs_node_write(current_ptr, (Red_Node*)&f);
 			if(ret)	return ret;
 			current_ptr = c_adr;
 			ret = redFs_cache_update(header);
-			if(ret) return ret;
+			if(ret) {
+				redFs_errno = ret;
+				return ret;
+			}
 		}
 	}
 	ret = redFs_cache_update(header);
-	if(ret) return ret;
+	if(ret) {
+		redFs_errno = ret;
+		return ret;
+	}
 	if(f.chained){
 		if(f.next_page != 0){
 			ret =  __redFs_recursive_remove_file(header, f.next_page, &f);
@@ -159,6 +181,7 @@ int redFs_write_file_in_current_location(Red_Header* header, char*name, uint8_t*
 			if(ret) return ret;
 		}
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -172,6 +195,7 @@ int redFs_write_file(Red_Header* header, char*path, uint8_t* buffer, uint32_t si
 	ret = redFs_write_file_in_current_location(header, file_name, buffer, size);
 	if(ret) return ret;
 	header->current_node = current_node;
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -179,6 +203,7 @@ int redFs_read_file_in_current_location(Red_Header* header, char*name, uint8_t* 
 	RED_PTR file_ptr = redFs_get_file_from_current_folder(header, name);
 	int ret = 0;
 	if(file_ptr == 0){
+		redFs_errno = FILE_NOT_FOUND_ERROR;
 		return FILE_NOT_FOUND_ERROR;
 	}
 	uint32_t tracker = 0;
@@ -200,13 +225,15 @@ int redFs_read_file_in_current_location(Red_Header* header, char*name, uint8_t* 
 			if(f.next_page != 0){
 				current_ptr = f.next_page;
 			}else{
+				redFs_errno = FILE_POINTER_ERROR;
 				return FILE_POINTER_ERROR;
 			}
 		}else{
-			//return FILE_TOO_SMALL_ERROR;
+			redFs_errno = FILE_TOO_SMALL_ERROR;
 			break;
 		}
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -220,6 +247,7 @@ int redFs_read_file(Red_Header* header, char*path, uint8_t* buffer, uint32_t siz
 	ret = redFs_read_file_in_current_location(header, file_name, buffer, size);
 	if(ret) return ret;
 	header->current_node = current_node;
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -230,6 +258,7 @@ int redFs_get_current_file_size(Red_Header* header, char*name){
 	}
 	Red_File f = {0};
 	if(redFs_node_read(file_ptr, (Red_Node*)&f)) return -1;
+	redFs_errno = 0;
 	return f.file_size;
 }
 
@@ -242,5 +271,6 @@ int redFs_get_file_size(Red_Header* header, char* path){
 	if(ret) return ret;
 	int size = redFs_get_current_file_size(header, file_name);
 	header->current_node = current_node;
+	redFs_errno = 0;
 	return size;
 }

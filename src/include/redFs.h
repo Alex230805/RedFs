@@ -74,6 +74,7 @@ typedef enum{
 	PARTITION_NODE_READING_ERROR,
 	REDFS_UNSUPPORTED_FUNCTION,
 	REDFS_BLOCK_FRAGMENT_ERROR,
+	REDFS_FRAGMENT_OFFSET_ERROR,
 	NODE_ALLOCATION_ERROR,
 	NODE_DEALLOCATION_ERROR,
 	NODE_NOT_FOUND,
@@ -131,6 +132,7 @@ static const char* red_state_lit[RED_ERROR_LIMIT] = {
 	[PARTITION_POINTER_LOCATION_MISMATCH] =	"Sanity check failed, pointer to where the partition begin is different from what's on the partition table",  			
 	[PARTITION_VERSION_INCOMPATIBLE] =	"Cannot operate inside the current partition, found an incompatible redFs major version used to create this partition",  			
 	[PARTITION_MAGIC_ID_IS_INVALID]	=	"Sanity check failed on magic number check, the redFs identifier for the cloned memory block is different from the identifier in the current fstab. This indicate a wrong pointer offset or a possible memory corruption, in any case DO NOT operate on this partition.",
+	[REDFS_FRAGMENT_OFFSET_ERROR] = "Fragment error: unable to obtain a valid fragment mapping offset from the fstab",
 	[RED_INVALID_ERROR]				=	"Unknown error"
 };
 
@@ -282,6 +284,54 @@ typedef struct{
 
 #include "redFs_folder.h"
 #include "redFs_file.h"
+
+/*
+ *	RedFs main errno variable. Every function that perform an interaction with the filesystem 
+ *	can generate and error since they are based on the generic functions of the filesystem, which  
+ *	can return an error code. 
+ *	Every function then can update the redFs_errno to flag the caller about the internal state, even 
+ *	if the function is of type void, like print functions and so on. 
+ *	It's suggested to use the redFs_errno and/or relative runtime function to get the error code 
+ *	only if a function return a non-zero exit code instead of saving the return value directly 
+ *	from each call:
+ *
+ *	Example: 
+ *		
+ *		int pid = 1003; 
+ *		redFs_print_fstab(pid); // this is a void function, you can use redFs_errno to check the exit code 
+ *		if(redFs_errno){
+ *			redFs_print_strerror(redFs_errno);
+ *		}
+ *		
+ *	Example: 
+ *
+ *		...
+ *		...		// those functions can return directly the exit code, but we are going to use 
+ *				// the errno value
+ *   	
+ *   	file_buffer[read_size] = '\0';
+ *   	if(redFs_write_file(&header, "./buffer", (uint8_t*)file_buffer, sizeof(char)*read_size)){
+ *			redFs_print_strerror(redFs_errno);
+ *   	}
+ *   	NOTYF("Written file size: %d", redFs_get_file_size(&header, "./buffer"));
+ *   	NOTY("Current dir content");
+ *   	if(redFs_print_dir_content(&header, "./")){
+ *			redFs_print_strerror(redFs_errno);
+ *   	}
+ *   	usleep(220000);
+ *   	NOTY("Printing fragmentation report");
+ *   	redFs_print_fragmentation_report(&header.fstab);
+ *
+ */
+
+static uint32_t redFs_errno = 0;
+
+/*
+ *	Runtime function to get the current errno value.
+ *
+ */
+
+uint32_t redFs_get_errno();
 
 /*
  *	Accessible software function to get redFs version during runtime.

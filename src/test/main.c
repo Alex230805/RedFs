@@ -141,7 +141,6 @@ int main(){
 	path[size] = '\0';
 	*(strchr(path, '\n')) = '\0';
 	strcat(path, "/bin/");
-	fclose(stream);
 
 	#define CMD_LEN 3
 	Cmd cmd[CMD_LEN] = {0};

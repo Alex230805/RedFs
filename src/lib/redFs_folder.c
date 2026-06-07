@@ -51,6 +51,7 @@ char** redFs_chop_path(char* path){
 	memcpy(len_buffer, &subdir_count, sizeof(uint32_t));
 	folder_list[-1] = len_buffer;
 
+	redFs_errno = 0;
 	return folder_list;
 }
 
@@ -61,12 +62,14 @@ char* redFs_path_pop_last(char** chopped_path){
 	char* name = chopped_path[len-1];
 	len -= 1;
 	memcpy(chopped_path[-1],&len, sizeof(uint32_t));
+	redFs_errno = 0;
 	return name;
 }
 
 uint32_t redFs_get_path_dir_count(char** chopped_path){
 	uint32_t len;
 	memcpy(&len, chopped_path[-1], sizeof(uint32_t));
+	redFs_errno = 0;
 	return len;
 }
 
@@ -114,12 +117,14 @@ int redFs_change_directory(Red_Header* header, char* dir_name){ // '.' and '..' 
 				ret = redFs_node_read(node.next_page, &node);
 				if(ret) return ret;
 			}else{
+				redFs_errno = FOLDER_NOT_FOUND_ERROR;
 				return (int)FOLDER_NOT_FOUND_ERROR;
 			}
 		}
 	}
 	header->current_node = ptr;
 	ret = redFs_cache_update(header);
+	redFs_errno = ret;
 	return ret;
 }
 
@@ -141,6 +146,7 @@ int redFs_create_directory(Red_Header* header, char* full_path, int permissions)
 	if(ret) return ret;
 	header->current_node = cache;
 	ret = redFs_cache_update(header);
+	redFs_errno = 0;
 	return ret;
 }
 
@@ -158,6 +164,7 @@ int redFs_remove_directory(Red_Header* header, char*full_path){
 	if(ret) return ret;
 	header->current_node = cache;
 	ret = redFs_cache_update(header);
+	redFs_errno = 0;
 	return ret;
 }
 
@@ -169,6 +176,7 @@ char* redFs_get_current_dir_name(Red_Header* header){
 	strcpy(name, node.name);
 	ret = redFs_cache_update(header);
 	if(ret) return NULL;
+	redFs_errno = 0;
 	return name;
 }
 
@@ -202,12 +210,14 @@ int redFs_print_current_dir_content(Red_Header* header){
 			if(node.next_page != 0){
 				ret = redFs_node_read(node.next_page, &node);
 			}else{
+				redFs_errno = PARTITION_NODE_READING_ERROR;
 				return PARTITION_NODE_READING_ERROR;
 			}
 		}
 	}
 	printf("\n");
 	ret = redFs_cache_update(header);
+	redFs_errno = ret;
 	return ret;
 }
 
@@ -217,6 +227,7 @@ int redFs_change_path_already_chopped(Red_Header* header, char** chopped_path){
 		int ret = redFs_change_directory(header, chopped_path[i]);
 		if(ret) return ret;
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -227,6 +238,7 @@ int redFs_change_path(Red_Header*header, char* path){
 		int ret = redFs_change_directory(header, chopped_path[i]);
 		if(ret) return ret;
 	}
+	redFs_errno = 0;
 	return 0;
 }
 
@@ -243,5 +255,6 @@ int redFs_print_dir_content(Red_Header* header, char* path){
 	if(ret) return ret;
 	header->current_node = cache;
 	ret = redFs_cache_update(header);
+	redFs_errno = ret;
 	return ret;
 }
