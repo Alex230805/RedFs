@@ -174,8 +174,8 @@ int redFs_node_pop_child_node_with_ptr(Red_Header* header, RED_PTR child, RED_PT
 				ret = redFs_node_read(f_node.next_page, &f_node);
 				if(ret) return ret;
 			}else{
-				redFs_errno = NODE_NOT_FOUND;
-				return (int)NODE_NOT_FOUND;
+				redFs_errno = NODE_NOT_FOUND_ERROR;
+				return (int)NODE_NOT_FOUND_ERROR;
 			}
 		}
 	}
@@ -220,8 +220,8 @@ int redFs_node_remove_child_node(Red_Header* header, char*name, RED_PTR father_n
 				ret = redFs_node_read(f_node.next_page, &f_node);
 				if(ret) return ret;
 			}else{
-				redFs_errno = NODE_NOT_FOUND;
-				return (int)NODE_NOT_FOUND;
+				redFs_errno = NODE_NOT_FOUND_ERROR;
+				return (int)NODE_NOT_FOUND_ERROR;
 			}
 		}
 	}
@@ -310,8 +310,8 @@ int redFs_node_recursive_remove_child_node(Red_Header* header, char* name, RED_P
 				ret = redFs_node_read(f_node.next_page, &f_node);
 				if(ret) return ret;
 			}else{
-				redFs_errno = NODE_NOT_FOUND;
-				return (int)NODE_NOT_FOUND;
+				redFs_errno = NODE_NOT_FOUND_ERROR;
+				return (int)NODE_NOT_FOUND_ERROR;
 			}
 		}
 	}

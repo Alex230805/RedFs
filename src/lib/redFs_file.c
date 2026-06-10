@@ -6,8 +6,8 @@ int redFs_touch_file_in_current_location(Red_Header* header, char* name, uint8_t
 	int ret = redFs_cache_update(header);
 	if(ret) return ret;
 	if(redFs_get_file_from_current_folder(header, name) != 0){
-		redFs_errno = FILE_ALREADY_EXIST;
-		return 	FILE_ALREADY_EXIST;
+		redFs_errno = FILE_ALREADY_EXIST_ERROR;
+		return 	FILE_ALREADY_EXIST_ERROR;
 	}
 	redFs_errno = 0;
 	return redFs_node_create_child_node(header, name, permissions, PAGE_IS_FILE, header->current_node);

@@ -215,11 +215,11 @@ int redFs_define_fstab(char* partition_name, uint32_t partition_size, uint32_t s
 	Red_ptable ptable = redFs_get_partition_table();
 	if(starting_point+partition_size > ptable.max_disk_size){
 		redFs_errno = NOT_ENOUGH_DISK_SPACE_ERROR; 
-		return PARTITION_SIZE_NOT_SUFFICIENT;
+		return NOT_ENOUGH_DISK_SPACE_ERROR;
 	}
 	if(partition_size < sizeof(Red_Fstab)) {
-		redFs_errno = PARTITION_SIZE_NOT_SUFFICIENT;
-		return PARTITION_SIZE_NOT_SUFFICIENT;
+		redFs_errno = PARTITION_SIZE_NOT_SUFFICIENT_ERROR;
+		return PARTITION_SIZE_NOT_SUFFICIENT_ERROR;
 	}
 	
 	// TODO: add not-contiguous allocation and mapping 
@@ -385,8 +385,8 @@ int redFs_init_disk(uint32_t disk_size){
 
 int redFs_create_partition(char* name, uint32_t size){
 	if(size < sizeof(Red_Fstab)) {
-		redFs_errno = PARTITION_SIZE_NOT_SUFFICIENT; 
-		return (int)PARTITION_SIZE_NOT_SUFFICIENT;
+		redFs_errno = PARTITION_SIZE_NOT_SUFFICIENT_ERROR; 
+		return (int)PARTITION_SIZE_NOT_SUFFICIENT_ERROR;
 	}
 	static Red_Fstab fstab = {0};
 	RED_PTR offset = redFs_calculate_new_partition_offset(size);
@@ -424,8 +424,8 @@ int redFs_erase_partition(uint32_t partition_id){
 	static Red_Fstab local = {0};
 	Red_ptable ptable = redFs_get_partition_table();
 	if(ptable.partition_count < 1){
-		redFs_errno = PARTITION_TABLE_EMPTY;
-		return PARTITION_TABLE_EMPTY;
+		redFs_errno = PARTITION_TABLE_EMPTY_ERROR;
+		return PARTITION_TABLE_EMPTY_ERROR;
 	}
 	if(ptable.max_disk_size == 0){
 		redFs_errno = PARTITION_TABLE_READ_ERROR; 
@@ -555,8 +555,8 @@ int redFs_get_partition_name_from_id(char* dest, uint32_t partition_id){
 		return PARTITION_TABLE_READ_ERROR;
 	}
 	if(dest == NULL) {
-		redFs_errno = GENERAL_INVALID_POINTER;
-		return GENERAL_INVALID_POINTER;
+		redFs_errno = GENERAL_INVALID_POINTER_ERROR;
+		return GENERAL_INVALID_POINTER_ERROR;
 	}
 	for(uint8_t i=0; i < ptable.partition_count; i++){
 		if(partition_id == ptable.partition_id[i]){
@@ -646,8 +646,8 @@ void redFs_get_partition_header(uint32_t partition_id, Red_Header* rh){
 int redFs_partition_header_sanity_check(Red_Header* rh){
 	Red_ptable ptable = redFs_get_partition_table();
 	if(ptable.partition_count < 1) {
-		redFs_errno = PARTITION_TABLE_EMPTY;
-		return PARTITION_TABLE_EMPTY;
+		redFs_errno = PARTITION_TABLE_EMPTY_ERROR;
+		return PARTITION_TABLE_EMPTY_ERROR;
 	}
 	bool status = false;
 	RED_PTR address = 0;
@@ -664,25 +664,25 @@ int redFs_partition_header_sanity_check(Red_Header* rh){
 		return PARTITION_NOT_FOUND_ERROR;
 	}
 	if(pid != rh->fstab.partition_id){
-		redFs_errno = PARTITION_INVALID_ID;
-		return PARTITION_INVALID_ID;
+		redFs_errno = PARTITION_INVALID_ID_ERROR;
+		return PARTITION_INVALID_ID_ERROR;
 	}
 	if(rh->fstab.raw_block_ptr[0].base_ptr != address){
-		redFs_errno = PARTITION_POINTER_LOCATION_MISMATCH;
-		return PARTITION_POINTER_LOCATION_MISMATCH;
+		redFs_errno = PARTITION_POINTER_LOCATION_MISMATCH_ERROR;
+		return PARTITION_POINTER_LOCATION_MISMATCH_ERROR;
 	}
 	if(((rh->fstab.version>>16) & 0xFF) != ((REDFS_VERSION>>16) & 0xFF)){
 		/* check for major version mismatch*/
-		redFs_errno = PARTITION_VERSION_INCOMPATIBLE;
-		return PARTITION_VERSION_INCOMPATIBLE;
+		redFs_errno = PARTITION_VERSION_INCOMPATIBLE_ERROR;
+		return PARTITION_VERSION_INCOMPATIBLE_ERROR;
 	}
 	if(\
 		rh->fstab.redfs_id[0] != REDFS_ID_PREFIX || \
 		rh->fstab.redfs_id[1] != REDFS_ID		 || \
 		rh->fstab.redfs_id[2] != REDFS_SUFFIX		\
 	){
-		redFs_errno = PARTITION_MAGIC_ID_IS_INVALID;
-		return PARTITION_MAGIC_ID_IS_INVALID;
+		redFs_errno = PARTITION_MAGIC_ID_IS_INVALID_ERROR;
+		return PARTITION_MAGIC_ID_IS_INVALID_ERROR;
 	}
 	redFs_errno = 0;
 	return 0;

@@ -93,11 +93,12 @@ int main(int argc, char** argv){
 		strcpy(name, "folder_");
 		sprintf(buffer, "%d", (int)(rand()%110));
 		strcat(name, buffer);
-		ret = redFs_remove_directory(&header,name);
-		if(ret == NODE_NOT_FOUND){
-			i-=1;
-		}else if(ret){
-			return ret;
+		if(redFs_remove_directory(&header,name)){
+			if(redFs_errno == NODE_NOT_FOUND_ERROR){
+				i=-1;
+			}else{
+				break;
+			}
 		}else{
 			NOTYF("Deleting folder %s", name);
 		}
