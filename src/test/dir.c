@@ -186,6 +186,28 @@ int main(int argc, char** argv){
 	}
 	NOTY("Synching base changes to the disk");
 	ret = redFs_sync_partition(&header);
+	NOTY("Fetching content from folder, content of '/'");
+
+	char** dir_content = redFs_get_dir_content(&header, "/");
+	if(!dir_content) return 1;
+	uint32_t dir_content_size = *((uint32_t*)(dir_content-sizeof(uint32_t)));
+	for(uint32_t i=0;i<dir_content_size; i++){
+		printf("%s\n", dir_content[i]);
+	}
+	
+	NOTY("Fetching content from folder, content of '/base_root_dir_0'");
+	dir_content = redFs_get_dir_content(&header, "base_root_dir_0");
+	if(!dir_content) return redFs_errno;
+	dir_content_size = *((uint32_t*)(dir_content-sizeof(uint32_t)));
+	for(uint32_t i=0;i<dir_content_size; i++){
+		printf("%s\n", dir_content[i]);
+	}
+	NOTY("Content count of '/base_root_dir_0'");
+	uint32_t content_count = 0;
+	if(redFs_get_dir_content_count(&header,"base_root_dir_0", &content_count)){
+		return redFs_errno;
+	}
+	NOTYF("Content count: %d\n", content_count);
 	redFs_close_static_virtual_memory();
 	NOTY("Test completed");
 	return ret;

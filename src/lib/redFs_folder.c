@@ -3,11 +3,14 @@
 #include "redFs_folder.h"
 
 char* redFs_malloc(size_t size){
-	if(redFs_local_buffer_tracker+size > BUFFER_SIZE){
+	if(redFs_local_buffer_tracker+size >= BUFFER_SIZE){
 		redFs_local_buffer_tracker = 0;
 	}
 	char* ptr = &redFs_local_buffer[redFs_local_buffer_tracker];
 	redFs_local_buffer_tracker += size;
+	if(redFs_local_buffer_tracker >= BUFFER_SIZE){
+		redFs_local_buffer_tracker += 1;
+	}
 	return ptr;
 }
 
@@ -243,10 +246,17 @@ int redFs_change_path(Red_Header*header, char* path){
 }
 
 int redFs_print_dir_content(Red_Header* header, char* path){
+	if(path[0] == '/') {
+		header->current_node = header->root;
+	}else if(path[0] != '.' && path[1] != '/'){
+		char* b = (char*)redFs_malloc(sizeof(char)*strlen(path)+2);
+		sprintf(b, "%s", "./");
+		strcat(b, path);
+		path = b;
+	}
 	char** chopped_path = redFs_chop_path(path);
 	int ret = 0;
 	RED_PTR cache = header->current_node;
-	if(path[0] == '/') header->current_node = header->root;
 	for(uint32_t i=0; i < redFs_get_path_dir_count(chopped_path); i++){
 		ret = redFs_change_directory(header, chopped_path[i]);
 		if(ret) return ret;
@@ -258,3 +268,104 @@ int redFs_print_dir_content(Red_Header* header, char* path){
 	redFs_errno = ret;
 	return ret;
 }
+
+
+char** redFs_get_current_dir_content(Red_Header* header){
+	Red_Node node = {0};
+	int ret = redFs_get_current_directory(header, &node);
+	if(ret) return NULL;
+	uint32_t count = redFs_node_get_content_count(&node);
+	uint32_t i=0;
+	
+	char**  buffer = (char**)redFs_malloc((sizeof(char*)*count)+sizeof(uint32_t));
+	memcpy(buffer, (char*)&count, sizeof(uint32_t));
+	buffer+=sizeof(uint32_t);
+
+	while(i < count){
+		for(uint32_t j=0;j<node.content_count;j++, i++){
+			Red_Node n = {0};
+			ret = redFs_node_read(node.content[j], &n);
+			if(ret) return NULL;
+			buffer[i] = (char*)redFs_malloc(sizeof(char)*STRING_LIMIT);
+			strcpy(buffer[i], n.name);
+		}
+		if(node.chained){
+			if(node.next_page != 0){
+				ret = redFs_node_read(node.next_page, &node);
+			}else{
+				redFs_errno = PARTITION_NODE_READING_ERROR;
+				return NULL;
+			}
+		}
+	}
+	ret = redFs_cache_update(header);
+	redFs_errno = ret;
+	return buffer;
+}
+
+char** redFs_get_dir_content(Red_Header* header, char* path){
+	if(path[0] == '/') {
+		header->current_node = header->root;
+	}else if(path[0] != '.' && path[1] != '/'){
+		char* b = (char*)redFs_malloc(sizeof(char)*strlen(path)+2);
+		sprintf(b, "%s", "./");
+		strcat(b, path);
+		path = b;
+	}
+
+	char** chopped_path = redFs_chop_path(path);
+	int ret = 0;
+	RED_PTR cache = header->current_node;
+
+	for(uint32_t i=0; i < redFs_get_path_dir_count(chopped_path); i++){
+		ret = redFs_change_directory(header, chopped_path[i]);
+		if(ret) return NULL;
+	}
+	char** buffer = redFs_get_current_dir_content(header);
+	header->current_node = cache;
+	ret = redFs_cache_update(header);
+	redFs_errno = ret;
+	return buffer;
+
+}
+
+
+int redFs_get_current_dir_content_count(Red_Header* header, uint32_t* dest_count){
+	Red_Node node = {0};
+	int ret = redFs_get_current_directory(header, &node);
+	if(ret) {
+		redFs_errno = ret;
+		return ret;
+	}
+	uint32_t count = redFs_node_get_content_count(&node);
+	*dest_count = count;
+	redFs_errno = 0;
+	return 0;
+}
+
+
+int redFs_get_dir_content_count(Red_Header* header, char* path, uint32_t* dest_count){
+	if(path[0] == '/') {
+		header->current_node = header->root;
+	}else if(path[0] != '.' && path[1] != '/'){
+		char* b = (char*)redFs_malloc(sizeof(char)*strlen(path)+2);
+		sprintf(b, "%s", "./");
+		strcat(b, path);
+		path = b;
+	}
+
+	char** chopped_path = redFs_chop_path(path);
+	int ret = 0;
+	RED_PTR cache = header->current_node;
+
+	for(uint32_t i=0; i < redFs_get_path_dir_count(chopped_path); i++){
+		ret = redFs_change_directory(header, chopped_path[i]);
+		if(ret) return ret;
+	}
+	ret = redFs_get_current_dir_content_count(header, dest_count);
+	header->current_node = cache;
+	ret = redFs_cache_update(header);
+	redFs_errno = ret;
+	return ret;
+}
+
